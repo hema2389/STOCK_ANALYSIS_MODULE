@@ -1,46 +1,36 @@
 import os
 import json
-import threading
+import asyncio
 import time
 from datetime import datetime
+from contextlib import asynccontextmanager
+
 import pytz
+import yfinance as yf
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import yfinance as yf
-import uvicorn
 
 # ---------- CONFIG ----------
-STOCKS = os.getenv("STOCKS", "RELIANCE.NS,SBIN.NS").split(",")  # comma separated list
+STOCKS = os.getenv("STOCKS", "RELIANCE.NS,SBIN.NS").split(",")
 PERSIST_FILE = os.getenv("PERSIST_FILE", "hl.json")
 INDIA = pytz.timezone("Asia/Kolkata")
-FETCH_HOUR = int(os.getenv("FETCH_HOUR", "10"))   # 10 for 10 AM IST
+FETCH_HOUR = int(os.getenv("FETCH_HOUR", "10"))
 FETCH_MINUTE = int(os.getenv("FETCH_MINUTE", "30"))
 POLL_SECONDS = int(os.getenv("POLL_SECONDS", "4"))
 
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+state = {}   # dynamically filled
 
-state = {
-    # will hold { 'RELIANCE.NS': {"high": float, "low": float, "status": "RED"}, ... }
-}
 
-# ---------- Persistence helpers ----------
-
+# ---------- Persistence ----------
 def load_persist():
     global state
     try:
         if os.path.exists(PERSIST_FILE):
             with open(PERSIST_FILE, "r") as f:
-                data = json.load(f)
-                state = data
-                print("Loaded persisted high/low from", PERSIST_FILE)
+                state = json.load(f)
+                print("Loaded persist:", state)
     except Exception as e:
-        print("Failed to load persist file:", e)
+        print("Error loading persist:", e)
 
 
 def save_persist():
@@ -48,127 +38,175 @@ def save_persist():
         with open(PERSIST_FILE, "w") as f:
             json.dump(state, f)
     except Exception as e:
-        print("Failed to save persist file:", e)
+        print("Error saving persist:", e)
 
-# ---------- Fetch today's high/low at scheduled time ----------
 
+# ---------- Fetch High/Low ----------
 def fetch_high_low_for_stock(ticker):
-    """Fetch intraday 1m data for today and compute high/low."""
     try:
         df = yf.download(tickers=ticker, period="1d", interval="1m", progress=False)
         if df is None or df.empty:
             return None
-        hi = float(df["High"].max())
-        lo = float(df["Low"].min())
-        return {"high": hi, "low": lo}
+        return {"high": float(df["High"].max()), "low": float(df["Low"].min())}
     except Exception as e:
         print(f"Error fetching HL for {ticker}: {e}")
         return None
 
 
-def scheduled_fetch():
-    """Thread that wakes up and fetches HL at FETCH_HOUR:FETCH_MINUTE IST daily."""
+# ---------- Coroutine: Daily HL fetch ----------
+async def scheduled_fetch():
     while True:
         now = datetime.now(INDIA)
-        # Wait until the next minute boundary for reduced CPU
         if now.hour == FETCH_HOUR and now.minute == FETCH_MINUTE:
-            print(f"Running scheduled HL fetch at {now.isoformat()}")
+            print("Running scheduled fetch at", now)
+
             for s in STOCKS:
-                try:
-                    result = fetch_high_low_for_stock(s)
-                    if result:
-                        state[s] = {"high": result["high"], "low": result["low"], "status": "RED", "last_updated": now.isoformat()}
-                        print(f"Set HL for {s}: {result}")
-                except Exception as e:
-                    print("Error in scheduled fetch for", s, e)
+                hl = fetch_high_low_for_stock(s)
+                if hl:
+                    state[s] = {
+                        "high": hl["high"],
+                        "low": hl["low"],
+                        "status": "RED",
+                        "last_update": now.isoformat(),
+                        "trigger_time": None,
+                        "trigger_price": None,
+                        "last_price": None,
+                    }
             save_persist()
-            # sleep 61 seconds to avoid double-run within the same minute
-            time.sleep(61)
-        time.sleep(5)
+            await asyncio.sleep(61)
 
-# ---------- Live monitor thread ----------
+        await asyncio.sleep(5)
 
-def monitor_prices():
-    """Continuously poll live price and update status per stock."""
+
+# ---------- Coroutine: Live Monitor ----------
+async def monitor_prices():
     while True:
-        # if no HL values available, skip
         if not state:
-            time.sleep(2)
+            await asyncio.sleep(2)
             continue
 
         for s in list(state.keys()):
             try:
                 ticker = yf.Ticker(s)
                 hist = ticker.history(period="1m")
+
                 if hist is None or hist.empty:
                     continue
+
                 latest = float(hist["Close"].iloc[-1])
                 hi = state[s].get("high")
                 lo = state[s].get("low")
+                prev_status = state[s].get("status", "RED")
 
-                prev = state[s].get("status", "RED")
                 if hi is None or lo is None:
                     state[s]["status"] = "UNKNOWN"
                 elif latest > hi or latest < lo:
+                    # → AMBER condition
                     state[s]["status"] = "AMBER"
+
+                    if prev_status != "AMBER":
+                        state[s]["trigger_time"] = datetime.now(INDIA).strftime("%H:%M:%S")
+                        state[s]["trigger_price"] = latest
+                        save_persist()
+
                 else:
                     state[s]["status"] = "RED"
 
                 state[s]["last_price"] = latest
                 state[s]["last_checked"] = datetime.now(INDIA).isoformat()
 
-                if state[s]["status"] != prev:
-                    # persist when status changes
+                if state[s]["status"] != prev_status:
                     save_persist()
 
             except Exception as e:
-                print("Error monitoring", s, e)
+                print("Monitor error:", s, e)
 
-        time.sleep(POLL_SECONDS)
+        await asyncio.sleep(POLL_SECONDS)
 
-# ---------- Startup: load persisted file and start threads ----------
 
-@app.on_event("startup")
-def startup_event():
-    print("Starting Stock Alert backend...")
+# ---------- Lifespan (Startup + Shutdown) ----------
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Starting backend...")
     load_persist()
-    # make sure state contains initial stocks
+
+    # Ensure all input stocks exist in state
     for s in STOCKS:
         if s not in state:
-            state[s] = {"high": None, "low": None, "status": "UNKNOWN"}
+            state[s] = {
+                "high": None,
+                "low": None,
+                "status": "UNKNOWN",
+                "trigger_time": None,
+                "trigger_price": None,
+                "last_price": None,
+            }
 
-    # Start the scheduler and monitor threads
-    threading.Thread(target=scheduled_fetch, daemon=True).start()
-    threading.Thread(target=monitor_prices, daemon=True).start()
+    # Start async background tasks
+    task1 = asyncio.create_task(scheduled_fetch())
+    task2 = asyncio.create_task(monitor_prices())
 
-# ---------- API endpoints ----------
+    yield
 
+    # Shutdown
+    task1.cancel()
+    task2.cancel()
+    try:
+        await task1
+        await task2
+    except asyncio.CancelledError:
+        pass
+
+
+app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ---------- API ----------
 @app.get("/status")
-def status():
-    """Return status for all stocks."""
-    return {"stocks": state, "time": datetime.now(INDIA).isoformat()}
+def get_status():
+    return {
+        "stocks": state,
+        "time": datetime.now(INDIA).isoformat()
+    }
+
 
 @app.get("/status/{ticker}")
-def status_ticker(ticker: str):
+def get_single(ticker: str):
     t = ticker.strip()
     if t in state:
-        return {t: state[t]}
+        return state[t]
     return {"error": "ticker not found"}
+
 
 @app.post("/force_fetch/{ticker}")
 def force_fetch(ticker: str):
-    """Force compute HL immediately for ticker (manual trigger)."""
     t = ticker.strip()
-    result = fetch_high_low_for_stock(t)
-    if result:
+    hl = fetch_high_low_for_stock(t)
+    if hl:
         now = datetime.now(INDIA)
-        state[t] = {"high": result["high"], "low": result["low"], "status": "RED", "last_updated": now.isoformat()}
+        state[t] = {
+            "high": hl["high"],
+            "low": hl["low"],
+            "status": "RED",
+            "trigger_time": None,
+            "trigger_price": None,
+            "last_price": None,
+            "last_update": now.isoformat(),
+        }
         save_persist()
-        return {"ok": True, t: state[t]}
-    return {"ok": False, "error": "failed to fetch"}
+        return {"ok": True, "data": state[t]}
+    return {"ok": False, "error": "Failed to fetch"}
 
-# ---------- Run if main ----------
 
+# ---------- Uvicorn local run ----------
 if __name__ == "__main__":
+    import uvicorn
     port = int(os.getenv("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
+    uvicorn.run("main:app", host="0.0.0.0", port=port)

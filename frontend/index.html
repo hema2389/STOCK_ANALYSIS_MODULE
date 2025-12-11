@@ -6,18 +6,40 @@
     <title>Stock Alert Light</title>
     <style>
       body { font-family: Arial, sans-serif; text-align:center; padding:30px }
-      .dot {
-        height: 100px;
-        width: 100px;
-        border-radius: 50%;
-        background-color: red;
+      .stock-box {
+        border: 2px solid #ddd;
+        padding: 20px;
         margin: 20px auto;
-        box-shadow: 0 0 30px red;
+        width: 350px;
+        border-radius: 12px;
+        box-shadow: 0 0 10px #ccc;
+      }
+      .dot {
+        height: 70px;
+        width: 70px;
+        border-radius: 50%;
+        margin: 10px auto;
+        box-shadow: 0 0 20px gray;
         transition: background-color 0.3s, box-shadow 0.3s;
       }
-      .label { font-size: 18px }
+      table {
+        width: 100%;
+        margin-top: 10px;
+        border-collapse: collapse;
+      }
+      table td {
+        padding: 6px;
+        border-bottom: 1px solid #ddd;
+        text-align: left;
+      }
+      .breakout {
+        font-size: 14px;
+        margin-top: 10px;
+        color: #d9534f;
+      }
     </style>
   </head>
+
   <body>
     <h1>Stock Alert Monitor</h1>
     <div id="lights"></div>
@@ -33,34 +55,63 @@
           const container = document.getElementById('lights');
           container.innerHTML = '';
 
-          for (const [s, v] of Object.entries(data.stocks)){
-            const el = document.createElement('div');
-            const d = document.createElement('div');
-            d.className = 'dot';
-            if (v.status === 'AMBER'){
-              d.style.backgroundColor = 'orange';
-              d.style.boxShadow = '0 0 30px orange';
-            } else if (v.status === 'RED'){
-              d.style.backgroundColor = 'red';
-              d.style.boxShadow = '0 0 30px red';
+          for (const [name, v] of Object.entries(data.stocks)) {
+            const box = document.createElement('div');
+            box.className = "stock-box";
+
+            // LIGHT INDICATOR
+            const dot = document.createElement('div');
+            dot.className = "dot";
+
+            if (v.status === 'AMBER') {
+              dot.style.backgroundColor = "orange";
+              dot.style.boxShadow = "0 0 25px orange";
+            } else if (v.status === 'RED') {
+              dot.style.backgroundColor = "red";
+              dot.style.boxShadow = "0 0 25px red";
             } else {
-              d.style.backgroundColor = 'gray';
-              d.style.boxShadow = '0 0 30px gray';
+              dot.style.backgroundColor = "gray";
+              dot.style.boxShadow = "0 0 25px gray";
             }
 
-            const txt = document.createElement('div');
-            txt.innerHTML = `<strong>${s}</strong> — status: ${v.status} — price: ${v.last_price || 'N/A'}\n high:${v.high || 'N/A'} low:${v.low || 'N/A'}`;
-            txt.style.marginBottom = '20px';
+            // TITLE
+            const title = document.createElement('h2');
+            title.innerText = name;
 
-            el.appendChild(d);
-            el.appendChild(txt);
-            container.appendChild(el);
+            // PRICE TABLE
+            const tbl = document.createElement('table');
+            tbl.innerHTML = `
+              <tr><td><strong>High:</strong></td><td>${v.high ?? 'N/A'}</td></tr>
+              <tr><td><strong>Low:</strong></td><td>${v.low ?? 'N/A'}</td></tr>
+              <tr><td><strong>Last Price:</strong></td><td>${v.last_price ?? 'N/A'}</td></tr>
+            `;
+
+            // BREAKOUT INFO WHEN STATUS == AMBER
+            let breakout = null;
+            if (v.status === "AMBER") {
+              breakout = document.createElement('div');
+              breakout.className = "breakout";
+              breakout.innerHTML = `
+                🔔 <strong>Breakout</strong><br>
+                Time: ${v.trigger_time || "N/A"}<br>
+                Breakout Price: ${v.trigger_price || "N/A"}
+              `;
+            }
+
+            // append all
+            box.appendChild(title);
+            box.appendChild(dot);
+            box.appendChild(tbl);
+            if (breakout) box.appendChild(breakout);
+
+            container.appendChild(box);
           }
 
-          document.getElementById('info').innerText = 'Last: ' + data.time;
-        } catch (e){
-          document.getElementById('info').innerText = 'Error fetching status';
+          document.getElementById('info').innerText = 'Last updated: ' + data.time;
+
+        } catch (e) {
           console.error(e);
+          document.getElementById('info').innerText = 'Error fetching status';
         }
       }
 
