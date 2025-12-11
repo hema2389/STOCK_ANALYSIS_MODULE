@@ -172,22 +172,3 @@ def force_fetch(ticker: str):
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
-```
-
----
-
-## `backend/storage.py`  (optional helper — simple wrapper)
-
-```python
-# small helper (not required) - left for future extension
-import json, os
-
-def save(path, data):
-    with open(path, 'w') as f:
-        json.dump(data, f)
-
-def load(path):
-    if not os.path.exists(path):
-        return {}
-    with open(path) as f:
-        return json.load(f)
