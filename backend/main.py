@@ -88,7 +88,7 @@ async def monitor_prices():
         for s in list(state.keys()):
             try:
                 ticker = yf.Ticker(s)
-                hist = ticker.history(period="1m")
+                hist = ticker.history(period="1d", interval="1m")
 
                 if hist is None or hist.empty:
                     continue
