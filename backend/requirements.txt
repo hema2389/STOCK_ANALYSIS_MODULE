@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+yfinance
+pytz
+python-dateutil
+requests

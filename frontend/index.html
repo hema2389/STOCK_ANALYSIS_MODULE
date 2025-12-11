@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stock Alert Light</title>
+    <style>
+      body { font-family: Arial, sans-serif; text-align:center; padding:30px }
+      .dot {
+        height: 100px;
+        width: 100px;
+        border-radius: 50%;
+        background-color: red;
+        margin: 20px auto;
+        box-shadow: 0 0 30px red;
+        transition: background-color 0.3s, box-shadow 0.3s;
+      }
+      .label { font-size: 18px }
+    </style>
+  </head>
+  <body>
+    <h1>Stock Alert Monitor</h1>
+    <div id="lights"></div>
+    <div class="label" id="info">Loading...</div>
+
+    <script>
+      const backend = (window.BACKEND_URL || "https://your-backend.onrender.com").replace(/\/$/, '');
+
+      async function fetchStatus() {
+        try {
+          const res = await fetch(`${backend}/status`);
+          const data = await res.json();
+          const container = document.getElementById('lights');
+          container.innerHTML = '';
+
+          for (const [s, v] of Object.entries(data.stocks)){
+            const el = document.createElement('div');
+            const d = document.createElement('div');
+            d.className = 'dot';
+            if (v.status === 'AMBER'){
+              d.style.backgroundColor = 'orange';
+              d.style.boxShadow = '0 0 30px orange';
+            } else if (v.status === 'RED'){
+              d.style.backgroundColor = 'red';
+              d.style.boxShadow = '0 0 30px red';
+            } else {
+              d.style.backgroundColor = 'gray';
+              d.style.boxShadow = '0 0 30px gray';
+            }
+
+            const txt = document.createElement('div');
+            txt.innerHTML = `<strong>${s}</strong> — status: ${v.status} — price: ${v.last_price || 'N/A'}\n high:${v.high || 'N/A'} low:${v.low || 'N/A'}`;
+            txt.style.marginBottom = '20px';
+
+            el.appendChild(d);
+            el.appendChild(txt);
+            container.appendChild(el);
+          }
+
+          document.getElementById('info').innerText = 'Last: ' + data.time;
+        } catch (e){
+          document.getElementById('info').innerText = 'Error fetching status';
+          console.error(e);
+        }
+      }
+
+      fetchStatus();
+      setInterval(fetchStatus, 3000);
+    </script>
+  </body>
+</html>

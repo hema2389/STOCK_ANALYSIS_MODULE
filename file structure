@@ -1,0 +1,14 @@
+stock-alert-render/
+├─ backend/
+│  ├─ main.py
+│  ├─ storage.py
+│  ├─ requirements.txt
+│  ├─ Procfile
+│  └─ .gitignore
+├─ frontend/
+│  └─ index.html
+├─ .github/
+│  └─ workflows/
+│     └─ ping.yml
+├─ README.md
+└─ hl.json          # example/persisted file (auto-created by app)
