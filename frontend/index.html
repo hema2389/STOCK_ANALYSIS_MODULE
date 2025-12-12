@@ -1,159 +1,139 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Stock Alert Monitor</title>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stock Alert Monitor</title>
 
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        text-align: center;
-        padding: 30px;
-        background: #f5f5f5;
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #ffd9d9;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 12px;
+      text-align: center;
+    }
+
+    th {
+      background: #333;
+      color: white;
+    }
+
+    .dot {
+      height: 18px;
+      width: 18px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    #info {
+      margin-top: 15px;
+      text-align: center;
+      font-size: 14px;
+      color: #444;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>📊 Stock Live Monitor</h1>
+
+<table id="stockTable">
+  <thead>
+    <tr>
+      <th>Stock</th>
+      <th>High</th>
+      <th>Low</th>
+      <th>Current Price</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<div id="info">Loading...</div>
+
+<script>
+  // ------------------------------
+  // BACKEND URL
+  // ------------------------------
+  const backend = "https://stock-analysis-module.onrender.com";
+
+  // ------------------------------
+  // Load Data Into Table
+  // ------------------------------
+  function addRow(name, data) {
+    const colors = {
+      AMBER: "orange",
+      RED: "red",
+      UNKNOWN: "gray"
+    };
+
+    const tbody = document.querySelector("#stockTable tbody");
+
+    const row = document.createElement("tr");
+
+    row.innerHTML = `
+      <td><strong>${name}</strong></td>
+      <td>${formatNum(data.high)}</td>
+      <td>${formatNum(data.low)}</td>
+      <td>${formatNum(data.last_price)}</td>
+
+      <td>
+        <span class="dot" style="background:${colors[data.status] || 'gray'}"></span>
+        ${data.status}
+      </td>
+    `;
+
+    tbody.appendChild(row);
+  }
+
+  // ------------------------------
+  // Fetch Status
+  // ------------------------------
+  async function fetchStatus() {
+    try {
+      const res = await fetch(`${backend}/status`);
+      const data = await res.json();
+
+      const tbody = document.querySelector("#stockTable tbody");
+      tbody.innerHTML = ""; // clear old rows
+
+      for (const [name, stock] of Object.entries(data.stocks)) {
+        addRow(name, stock);
       }
 
-      h1 {
-        margin-bottom: 25px;
-      }
+      document.getElementById("info").innerText =
+        "Last updated: " + data.time;
 
-      #lights {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 25px;
-      }
+    } catch (err) {
+      console.error(err);
+      document.getElementById("info").innerText = "Error loading data";
+    }
+  }
 
-      .stock-box {
-        background: #fff;
-        border: 2px solid #ddd;
-        width: 330px;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
-      }
+  // Initial load + auto-refresh every 3 sec
+  fetchStatus();
+  setInterval(fetchStatus, 3000);
+</script>
 
-      .dot {
-        height: 70px;
-        width: 70px;
-        border-radius: 50%;
-        margin: 12px auto;
-        transition: 0.3s;
-      }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 10px;
-      }
-
-      table td {
-        padding: 6px 4px;
-        border-bottom: 1px solid #eee;
-        text-align: left;
-      }
-
-      .breakout {
-        font-size: 14px;
-        margin-top: 10px;
-        color: #d9534f;
-      }
-
-      #info {
-        margin-top: 20px;
-        color: #333;
-      }
-    </style>
-  </head>
-
-  <body>
-    <h1>📈 Stock Alert Monitor</h1>
-
-    <div id="lights"></div>
-    <div id="info">Loading...</div>
-
-    <script>
-      // ------------------------------
-      // CONFIG (CORRECTED)
-      // ------------------------------
-      const backend = "https://stock-analysis-module.onrender.com"
-        .replace(/\/$/, ""); // remove trailing slash if any
-
-      // ------------------------------
-      // UI Helper: Create Stock Box
-      // ------------------------------
-      function createStockBox(name, data) {
-        const box = document.createElement("div");
-        box.className = "stock-box";
-
-        const title = document.createElement("h2");
-        title.innerText = name;
-
-        const dot = document.createElement("div");
-        dot.className = "dot";
-
-        const colors = {
-          AMBER: "orange",
-          RED: "red",
-          UNKNOWN: "gray",
-        };
-
-        const c = colors[data.status] || "gray";
-        dot.style.backgroundColor = c;
-        dot.style.boxShadow = `0 0 25px ${c}`;
-
-        const tbl = document.createElement("table");
-        tbl.innerHTML = `
-          <tr><td><strong>High:</strong></td><td>${data.high ?? "N/A"}</td></tr>
-          <tr><td><strong>Low:</strong></td><td>${data.low ?? "N/A"}</td></tr>
-          <tr><td><strong>Last Price:</strong></td><td>${data.last_price ?? "N/A"}</td></tr>
-        `;
-
-        box.appendChild(title);
-        box.appendChild(dot);
-        box.appendChild(tbl);
-
-        if (data.status === "AMBER") {
-          const b = document.createElement("div");
-          b.className = "breakout";
-          b.innerHTML = `
-            🔔 <strong>Breakout</strong><br>
-            Time: ${data.trigger_time || "N/A"}<br>
-            Price: ${data.trigger_price || "N/A"}
-          `;
-          box.appendChild(b);
-        }
-
-        return box;
-      }
-
-      // ------------------------------
-      // Fetch Status from Backend
-      // ------------------------------
-      async function fetchStatus() {
-        try {
-          const res = await fetch(`${backend}/status`);
-          const data = await res.json();
-
-          const container = document.getElementById("lights");
-          container.innerHTML = "";
-
-          for (const [name, stock] of Object.entries(data.stocks)) {
-            container.appendChild(createStockBox(name, stock));
-          }
-
-          document.getElementById("info").innerText =
-            "Last updated: " + data.time;
-
-        } catch (error) {
-          console.error(error);
-          document.getElementById("info").innerText = "Error fetching data";
-        }
-      }
-
-      // Initial load + auto refresh
-      fetchStatus();
-      setInterval(fetchStatus, 3000);
-    </script>
-  </body>
+</body>
 </html>
