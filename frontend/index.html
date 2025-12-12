@@ -9,11 +9,11 @@
     body {
       font-family: Arial, sans-serif;
       padding: 20px;
-      background: #ffd9d9;
+      background: #ffe7e7;
     }
 
-    h1 {
-      text-align: center;
+    h1 { 
+      text-align: center; 
       margin-bottom: 20px;
     }
 
@@ -26,28 +26,27 @@
     }
 
     th, td {
-      border: 1px solid #ddd;
-      padding: 12px;
+      border: 1px solid #ccc;
+      padding: 10px;
       text-align: center;
     }
 
     th {
-      background: #333;
+      background: #222;
       color: white;
     }
 
     .dot {
-      height: 18px;
-      width: 18px;
+      height: 15px;
+      width: 15px;
       border-radius: 50%;
       display: inline-block;
     }
 
     #info {
-      margin-top: 15px;
+      margin-top: 12px;
       text-align: center;
       font-size: 14px;
-      color: #444;
     }
   </style>
 </head>
@@ -56,26 +55,16 @@
 
 <h1>📊 Stock Live Monitor</h1>
 
-<!-- ADD STOCK UI -->
-<div style="text-align:center; margin-bottom:20px;">
-  <input id="newStock" 
-         placeholder="Enter Stock (e.g., ICICIBANK.NS)" 
-         style="padding:8px; width:250px; border-radius:6px; border:1px solid #aaa;" />
-
-  <button onclick="addStock()" 
-          style="padding:8px 15px; border:none; background:#333; color:white; border-radius:6px; cursor:pointer;">
-    Add Stock
-  </button>
-</div>
-
 <table id="stockTable">
   <thead>
     <tr>
       <th>Stock</th>
-      <th>High</th>
-      <th>Low</th>
+      <th>10:30 High</th>
+      <th>10:30 Low</th>
       <th>Current Price</th>
       <th>Status</th>
+      <th>Current High</th>
+      <th>Current Low</th>
     </tr>
   </thead>
   <tbody></tbody>
@@ -86,53 +75,30 @@
 <script>
   const backend = "https://stock-analysis-module.onrender.com";
 
-  function formatNum(n) {
-    return n === null || n === undefined ? "N/A" : Number(n).toFixed(2);
-  }
-
-  async function addStock() {
-    const ticker = document.getElementById("newStock").value.trim().toUpperCase();
-
-    if (!ticker.endsWith(".NS")) {
-      alert("Ticker must end with .NS (example: RELIANCE.NS)");
-      return;
-    }
-
-    const res = await fetch(`${backend}/add_stock`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ticker })
-    });
-
-    const out = await res.json();
-
-    if (out.ok) {
-      alert(`Added: ${ticker}`);
-      fetchStatus();
-    } else {
-      alert(out.error || "Failed to add stock");
-    }
-
-    document.getElementById("newStock").value = "";
+  function format(x) {
+    if (x === null || x === undefined) return "N/A";
+    return Number(x).toFixed(2);
   }
 
   function addRow(name, data) {
     const colors = { AMBER: "orange", RED: "red", UNKNOWN: "gray" };
 
     const tbody = document.querySelector("#stockTable tbody");
-
     const row = document.createElement("tr");
 
     row.innerHTML = `
-      <td><strong>${name}</strong></td>
-      <td>${formatNum(data.high)}</td>
-      <td>${formatNum(data.low)}</td>
-      <td>${formatNum(data.last_price)}</td>
+      <td><b>${name}</b></td>
+      <td>${format(data.high)}</td>
+      <td>${format(data.low)}</td>
+      <td>${format(data.last_price)}</td>
 
       <td>
         <span class="dot" style="background:${colors[data.status] || 'gray'}"></span>
         ${data.status}
       </td>
+
+      <td>${format(data.current_high)}</td>
+      <td>${format(data.current_low)}</td>
     `;
 
     tbody.appendChild(row);
@@ -150,11 +116,11 @@
         addRow(name, stock);
       }
 
-      document.getElementById("info").innerText = "Last updated: " + data.time;
+      document.getElementById("info").innerText =
+        "Last updated: " + data.time;
 
-    } catch (err) {
-      console.error(err);
-      document.getElementById("info").innerText = "Error loading data";
+    } catch (e) {
+      document.getElementById("info").innerText = "Error fetching data";
     }
   }
 
