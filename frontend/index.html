@@ -78,6 +78,14 @@
   const backend = "https://stock-analysis-module.onrender.com";
 
   // ------------------------------
+  // Number formatter (FIXED BUG!!)
+  // ------------------------------
+  function formatNum(n) {
+    if (n === null || n === undefined || n === "N/A") return "N/A";
+    return Number(n).toFixed(2);
+  }
+
+  // ------------------------------
   // Load Data Into Table
   // ------------------------------
   function addRow(name, data) {
