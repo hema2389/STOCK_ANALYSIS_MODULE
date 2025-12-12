@@ -9,14 +9,12 @@
     body {
       font-family: Arial, sans-serif;
       padding: 20px;
-      background: #ffe7e7;
+      background: #fff0f0;
     }
-
-    h1 { 
-      text-align: center; 
+    h1 {
+      text-align: center;
       margin-bottom: 20px;
     }
-
     table {
       width: 100%;
       border-collapse: collapse;
@@ -24,29 +22,24 @@
       border-radius: 10px;
       overflow: hidden;
     }
-
     th, td {
-      border: 1px solid #ccc;
+      border: 1px solid #ddd;
       padding: 10px;
       text-align: center;
     }
-
     th {
       background: #222;
       color: white;
     }
-
     .dot {
-      height: 15px;
-      width: 15px;
+      height: 14px;
+      width: 14px;
       border-radius: 50%;
       display: inline-block;
     }
-
     #info {
-      margin-top: 12px;
       text-align: center;
-      font-size: 14px;
+      margin-top: 15px;
     }
   </style>
 </head>
@@ -54,6 +47,12 @@
 <body>
 
 <h1>📊 Stock Live Monitor</h1>
+
+<div style="text-align:center; margin-bottom:20px;">
+  <input id="newStock" placeholder="Enter stock (e.g., TCS.NS)"
+         style="padding:8px; width:180px;">
+  <button onclick="addStock()" style="padding:8px;">Add</button>
+</div>
 
 <table id="stockTable">
   <thead>
@@ -80,27 +79,48 @@
     return Number(x).toFixed(2);
   }
 
+  async function addStock() {
+    const t = document.getElementById("newStock").value.trim();
+    if (!t) return alert("Enter a ticker!");
+
+    try {
+      const res = await fetch(`${backend}/add_stock`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ ticker: t })
+      });
+
+      const data = await res.json();
+      if (data.ok) {
+        alert(`${t} added!`);
+        document.getElementById("newStock").value = "";
+        fetchStatus();
+      } else {
+        alert(data.error);
+      }
+
+    } catch {
+      alert("Error adding stock");
+    }
+  }
+
   function addRow(name, data) {
     const colors = { AMBER: "orange", RED: "red", UNKNOWN: "gray" };
-
     const tbody = document.querySelector("#stockTable tbody");
-    const row = document.createElement("tr");
 
+    const row = document.createElement("tr");
     row.innerHTML = `
       <td><b>${name}</b></td>
       <td>${format(data.high)}</td>
       <td>${format(data.low)}</td>
       <td>${format(data.last_price)}</td>
-
       <td>
-        <span class="dot" style="background:${colors[data.status] || 'gray'}"></span>
+        <span class="dot" style="background:${colors[data.status]}"></span>
         ${data.status}
       </td>
-
       <td>${format(data.current_high)}</td>
       <td>${format(data.current_low)}</td>
     `;
-
     tbody.appendChild(row);
   }
 
@@ -119,7 +139,7 @@
       document.getElementById("info").innerText =
         "Last updated: " + data.time;
 
-    } catch (e) {
+    } catch {
       document.getElementById("info").innerText = "Error fetching data";
     }
   }
