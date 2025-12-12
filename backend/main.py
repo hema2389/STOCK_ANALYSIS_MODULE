@@ -1,7 +1,7 @@
 import os
 import json
 import asyncio
-from datetime import datetime
+from datetime import datetime, time as dt_time
 from contextlib import asynccontextmanager
 
 import pytz
@@ -9,35 +9,30 @@ import yfinance as yf
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-# ---------------------------------------------------------
-# CONFIG
-# ---------------------------------------------------------
-STOCKS = os.getenv("STOCKS", "").split(",")  # NOT USED ANYMORE (dynamic)
+# ----------------- CONFIG -----------------
 PERSIST_FILE = os.getenv("PERSIST_FILE", "hl.json")
 INDIA = pytz.timezone("Asia/Kolkata")
+FETCH_HOUR = 10
+FETCH_MINUTE = 30
+POLL_SECONDS = 5
 
-FETCH_HOUR = int(os.getenv("FETCH_HOUR", "10"))
-FETCH_MINUTE = int(os.getenv("FETCH_MINUTE", "30"))
-POLL_SECONDS = int(os.getenv("POLL_SECONDS", "4"))
+MARKET_OPEN = dt_time(9, 15)
+MARKET_CLOSE = dt_time(15, 30)
 
-state = {}   # dynamic stock dictionary
+state = {}  # dynamic stock dictionary
 
-
-# ---------------------------------------------------------
-# Persistence
-# ---------------------------------------------------------
+# ----------------- PERSISTENCE -----------------
 def load_persist():
     global state
-    try:
-        if os.path.exists(PERSIST_FILE):
+    if os.path.exists(PERSIST_FILE):
+        try:
             with open(PERSIST_FILE, "r") as f:
                 state = json.load(f)
-            print("Loaded persist:", state)
-        else:
+            print("Loaded persisted data")
+        except:
             state = {}
-    except Exception as e:
-        print("Error loading persist:", e)
-
+    else:
+        state = {}
 
 def save_persist():
     try:
@@ -46,190 +41,151 @@ def save_persist():
     except Exception as e:
         print("Error saving persist:", e)
 
-
-# ---------------------------------------------------------
-# Fetch Intraday High/Low at 10:30
-# ---------------------------------------------------------
-def fetch_high_low_for_stock(ticker):
+# ----------------- HELPER -----------------
+def fetch_intraday(ticker):
     try:
-        df = yf.download(
-            tickers=ticker,
-            period="1d",
-            interval="1m",
-            progress=False
-        )
+        df = yf.download(tickers=ticker, period="1d", interval="1m", progress=False)
         if df is None or df.empty:
             return None
-
-        return {
-            "high": float(df["High"].max()),
-            "low": float(df["Low"].min())
-        }
-
+        return df
     except Exception as e:
-        print(f"HL fetch error for {ticker}: {e}")
+        print("Error fetching", ticker, e)
         return None
 
-
-# ---------------------------------------------------------
-# Update Current High/Low continuously
-# ---------------------------------------------------------
 def update_current_high_low(ticker, latest_price):
     if state[ticker].get("current_high") is None:
         state[ticker]["current_high"] = latest_price
         state[ticker]["current_low"] = latest_price
         return
-
     if latest_price > state[ticker]["current_high"]:
         state[ticker]["current_high"] = latest_price
-
     if latest_price < state[ticker]["current_low"]:
         state[ticker]["current_low"] = latest_price
 
-
-# ---------------------------------------------------------
-# Scheduled HL Fetch at 10:30
-# ---------------------------------------------------------
-async def scheduled_fetch():
+# ----------------- DAILY RESET -----------------
+async def reset_daily():
     while True:
         now = datetime.now(INDIA)
-
-        if now.hour == FETCH_HOUR and now.minute == FETCH_MINUTE:
-            print("Running 10:30 HL fetch...")
-
+        if now.time() >= dt_time(9,15) and now.time() < dt_time(9,16):
             for s in state.keys():
-                hl = fetch_high_low_for_stock(s)
-                if hl:
-                    state[s]["high"] = hl["high"]
-                    state[s]["low"] = hl["low"]
+                state[s]["hl_high"] = None
+                state[s]["hl_low"] = None
+                state[s]["current_high"] = None
+                state[s]["current_low"] = None
+                state[s]["status"] = "UNKNOWN"
+                state[s]["trigger_time"] = None
+                state[s]["trigger_price"] = None
+            save_persist()
+            await asyncio.sleep(61)
+        await asyncio.sleep(10)
+
+# ----------------- SCHEDULED HL FETCH -----------------
+async def scheduled_hl():
+    while True:
+        now = datetime.now(INDIA)
+        if now.hour == FETCH_HOUR and now.minute == FETCH_MINUTE:
+            for s in state.keys():
+                df = fetch_intraday(s)
+                if df is not None:
+                    state[s]["hl_high"] = float(df["High"].max())
+                    state[s]["hl_low"] = float(df["Low"].min())
                     state[s]["status"] = "RED"
                     state[s]["trigger_time"] = None
                     state[s]["trigger_price"] = None
-
             save_persist()
-            await asyncio.sleep(65)
-
+            await asyncio.sleep(61)
         await asyncio.sleep(5)
 
-
-# ---------------------------------------------------------
-# Live Monitor Prices
-# ---------------------------------------------------------
+# ----------------- MONITOR LIVE -----------------
 async def monitor_prices():
     while True:
+        now = datetime.now(INDIA)
+        market_open = MARKET_OPEN <= now.time() <= MARKET_CLOSE
         for s in list(state.keys()):
-            try:
-                ticker = yf.Ticker(s)
-                hist = ticker.history(period="1d", interval="1m")
+            df = fetch_intraday(s)
+            if df is None or df.empty:
+                continue
+            latest = float(df["Close"].iloc[-1])
+            state[s]["last_price"] = latest
+            state[s]["last_checked"] = now.isoformat()
 
-                # No new data (market closed)
-                if hist is None or hist.empty:
-                    state[s]["last_price"] = state[s].get("last_price", "N/A")
-                    state[s]["last_checked"] = datetime.now(INDIA).isoformat()
-                    continue
-
-                latest = float(hist["Close"].iloc[-1])
-                state[s]["last_price"] = latest
-                state[s]["last_checked"] = datetime.now(INDIA).isoformat()
-
-                # Update dynamic high/low
+            # Update current day high/low only during market hours
+            if market_open:
                 update_current_high_low(s, latest)
 
-                hi = state[s].get("high")
-                lo = state[s].get("low")
-                prev_status = state[s].get("status", "UNKNOWN")
-
-                # If 10:30 levels not fetched yet
-                if hi is None or lo is None:
-                    state[s]["status"] = "UNKNOWN"
-
+            # Breakout check based on 10:30 HL
+            hl_high = state[s].get("hl_high")
+            hl_low = state[s].get("hl_low")
+            prev_status = state[s].get("status", "UNKNOWN")
+            if hl_high is not None and hl_low is not None:
+                if latest > hl_high or latest < hl_low:
+                    state[s]["status"] = "AMBER"
+                    if prev_status != "AMBER":
+                        state[s]["trigger_time"] = now.strftime("%H:%M:%S")
+                        state[s]["trigger_price"] = latest
+                        save_persist()
                 else:
-                    if latest > hi or latest < lo:
-                        state[s]["status"] = "AMBER"
-                        if prev_status != "AMBER":
-                            state[s]["trigger_time"] = datetime.now(INDIA).strftime("%H:%M:%S")
-                            state[s]["trigger_price"] = latest
-                            save_persist()
-                    else:
-                        state[s]["status"] = "RED"
+                    state[s]["status"] = "RED"
 
-                if state[s]["status"] != prev_status:
-                    save_persist()
-
-            except Exception as e:
-                print("Monitor error:", s, e)
-
+            if state[s]["status"] != prev_status:
+                save_persist()
         await asyncio.sleep(POLL_SECONDS)
 
-
-# ---------------------------------------------------------
-# Lifespan
-# ---------------------------------------------------------
+# ----------------- LIFESPAN -----------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Backend starting...")
     load_persist()
-
-    # Ensure structure correctness
     for s in list(state.keys()):
-        stock = state[s]
-        stock.setdefault("high", None)
-        stock.setdefault("low", None)
-        stock.setdefault("current_high", None)
-        stock.setdefault("current_low", None)
-        stock.setdefault("status", "UNKNOWN")
-        stock.setdefault("trigger_time", None)
-        stock.setdefault("trigger_price", None)
-        stock.setdefault("last_price", None)
-        stock.setdefault("last_checked", None)
+        state[s].setdefault("hl_high", None)
+        state[s].setdefault("hl_low", None)
+        state[s].setdefault("current_high", None)
+        state[s].setdefault("current_low", None)
+        state[s].setdefault("status", "UNKNOWN")
+        state[s].setdefault("trigger_time", None)
+        state[s].setdefault("trigger_price", None)
+        state[s].setdefault("last_price", None)
+        state[s].setdefault("last_checked", None)
 
-    t1 = asyncio.create_task(scheduled_fetch())
+    t1 = asyncio.create_task(scheduled_hl())
     t2 = asyncio.create_task(monitor_prices())
+    t3 = asyncio.create_task(reset_daily())
 
     yield
 
     t1.cancel()
     t2.cancel()
+    t3.cancel()
     try:
         await t1
         await t2
+        await t3
     except:
         pass
 
-
-# ---------------------------------------------------------
-# FastAPI App
-# ---------------------------------------------------------
+# ----------------- FASTAPI -----------------
 app = FastAPI(lifespan=lifespan)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
 
-
-# ---------------------------------------------------------
-# API ROUTES
-# ---------------------------------------------------------
+# ----------------- API -----------------
 @app.get("/status")
 def get_status():
     return {"stocks": state, "time": datetime.now(INDIA).isoformat()}
-
 
 @app.post("/add_stock")
 async def add_stock(request: Request):
     body = await request.json()
     ticker = body.get("ticker", "").strip().upper()
-
     if not ticker:
         return {"ok": False, "error": "Ticker missing"}
-
     if ticker not in state:
         state[ticker] = {
-            "high": None,
-            "low": None,
+            "hl_high": None,
+            "hl_low": None,
             "current_high": None,
             "current_low": None,
             "status": "UNKNOWN",
@@ -240,13 +196,9 @@ async def add_stock(request: Request):
         }
         save_persist()
         return {"ok": True, "msg": f"{ticker} added"}
-
     return {"ok": False, "error": "Ticker already exists"}
 
-
-# ---------------------------------------------------------
-# Local Run
-# ---------------------------------------------------------
+# ----------------- LOCAL RUN -----------------
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000)
