@@ -3,118 +3,155 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Stock Alert Light</title>
+    <title>Stock Alert Monitor</title>
+
     <style>
-      body { font-family: Arial, sans-serif; text-align:center; padding:30px }
-      .stock-box {
-        border: 2px solid #ddd;
-        padding: 20px;
-        margin: 20px auto;
-        width: 350px;
-        border-radius: 12px;
-        box-shadow: 0 0 10px #ccc;
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 30px;
+        background: #f5f5f5;
       }
+
+      h1 {
+        margin-bottom: 25px;
+      }
+
+      #lights {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 25px;
+      }
+
+      .stock-box {
+        background: #fff;
+        border: 2px solid #ddd;
+        width: 330px;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+      }
+
       .dot {
         height: 70px;
         width: 70px;
         border-radius: 50%;
-        margin: 10px auto;
-        box-shadow: 0 0 20px gray;
-        transition: background-color 0.3s, box-shadow 0.3s;
+        margin: 12px auto;
+        transition: 0.3s;
       }
+
       table {
         width: 100%;
-        margin-top: 10px;
         border-collapse: collapse;
+        margin-top: 10px;
       }
+
       table td {
-        padding: 6px;
-        border-bottom: 1px solid #ddd;
+        padding: 6px 4px;
+        border-bottom: 1px solid #eee;
         text-align: left;
       }
+
       .breakout {
         font-size: 14px;
         margin-top: 10px;
         color: #d9534f;
       }
+
+      #info {
+        margin-top: 20px;
+        color: #333;
+      }
     </style>
   </head>
 
   <body>
-    <h1>Stock Alert Monitor</h1>
+    <h1>📈 Stock Alert Monitor</h1>
+
     <div id="lights"></div>
-    <div class="label" id="info">Loading...</div>
+    <div id="info">Loading...</div>
 
     <script>
-      const backend = (window.BACKEND_URL || "https://your-backend.onrender.com").replace(/\/$/, '');
+      // ------------------------------
+      // CONFIG
+      // ------------------------------
+      const backend = (window.BACKEND_URL || "https://your-backend.onrender.com")
+        .replace(/\/$/, "");
 
+      // ------------------------------
+      // UI Helper: Create Stock Box
+      // ------------------------------
+      function createStockBox(name, data) {
+        const box = document.createElement("div");
+        box.className = "stock-box";
+
+        const title = document.createElement("h2");
+        title.innerText = name;
+
+        const dot = document.createElement("div");
+        dot.className = "dot";
+
+        // Light color mapping
+        const colors = {
+          AMBER: "orange",
+          RED: "red",
+          UNKNOWN: "gray",
+        };
+        const c = colors[data.status] || "gray";
+
+        dot.style.backgroundColor = c;
+        dot.style.boxShadow = `0 0 25px ${c}`;
+
+        const tbl = document.createElement("table");
+        tbl.innerHTML = `
+          <tr><td><strong>High:</strong></td><td>${data.high ?? "N/A"}</td></tr>
+          <tr><td><strong>Low:</strong></td><td>${data.low ?? "N/A"}</td></tr>
+          <tr><td><strong>Last Price:</strong></td><td>${data.last_price ?? "N/A"}</td></tr>
+        `;
+
+        box.appendChild(title);
+        box.appendChild(dot);
+        box.appendChild(tbl);
+
+        if (data.status === "AMBER") {
+          const b = document.createElement("div");
+          b.className = "breakout";
+          b.innerHTML = `
+            🔔 <strong>Breakout</strong><br>
+            Time: ${data.trigger_time || "N/A"}<br>
+            Price: ${data.trigger_price || "N/A"}
+          `;
+          box.appendChild(b);
+        }
+
+        return box;
+      }
+
+      // ------------------------------
+      // Fetch Status from Backend
+      // ------------------------------
       async function fetchStatus() {
         try {
           const res = await fetch(`${backend}/status`);
           const data = await res.json();
-          const container = document.getElementById('lights');
-          container.innerHTML = '';
 
-          for (const [name, v] of Object.entries(data.stocks)) {
-            const box = document.createElement('div');
-            box.className = "stock-box";
+          const container = document.getElementById("lights");
+          container.innerHTML = "";
 
-            // LIGHT INDICATOR
-            const dot = document.createElement('div');
-            dot.className = "dot";
-
-            if (v.status === 'AMBER') {
-              dot.style.backgroundColor = "orange";
-              dot.style.boxShadow = "0 0 25px orange";
-            } else if (v.status === 'RED') {
-              dot.style.backgroundColor = "red";
-              dot.style.boxShadow = "0 0 25px red";
-            } else {
-              dot.style.backgroundColor = "gray";
-              dot.style.boxShadow = "0 0 25px gray";
-            }
-
-            // TITLE
-            const title = document.createElement('h2');
-            title.innerText = name;
-
-            // PRICE TABLE
-            const tbl = document.createElement('table');
-            tbl.innerHTML = `
-              <tr><td><strong>High:</strong></td><td>${v.high ?? 'N/A'}</td></tr>
-              <tr><td><strong>Low:</strong></td><td>${v.low ?? 'N/A'}</td></tr>
-              <tr><td><strong>Last Price:</strong></td><td>${v.last_price ?? 'N/A'}</td></tr>
-            `;
-
-            // BREAKOUT INFO WHEN STATUS == AMBER
-            let breakout = null;
-            if (v.status === "AMBER") {
-              breakout = document.createElement('div');
-              breakout.className = "breakout";
-              breakout.innerHTML = `
-                🔔 <strong>Breakout</strong><br>
-                Time: ${v.trigger_time || "N/A"}<br>
-                Breakout Price: ${v.trigger_price || "N/A"}
-              `;
-            }
-
-            // append all
-            box.appendChild(title);
-            box.appendChild(dot);
-            box.appendChild(tbl);
-            if (breakout) box.appendChild(breakout);
-
-            container.appendChild(box);
+          for (const [name, stock] of Object.entries(data.stocks)) {
+            container.appendChild(createStockBox(name, stock));
           }
 
-          document.getElementById('info').innerText = 'Last updated: ' + data.time;
+          document.getElementById("info").innerText = "Last updated: " + data.time;
 
-        } catch (e) {
-          console.error(e);
-          document.getElementById('info').innerText = 'Error fetching status';
+        } catch (error) {
+          console.error(error);
+          document.getElementById("info").innerText = "Error fetching data";
         }
       }
 
+      // Initial load + auto refresh
       fetchStatus();
       setInterval(fetchStatus, 3000);
     </script>
