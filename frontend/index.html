@@ -56,6 +56,18 @@
 
 <h1>📊 Stock Live Monitor</h1>
 
+<!-- ADD STOCK UI -->
+<div style="text-align:center; margin-bottom:20px;">
+  <input id="newStock" 
+         placeholder="Enter Stock (e.g., ICICIBANK.NS)" 
+         style="padding:8px; width:250px; border-radius:6px; border:1px solid #aaa;" />
+
+  <button onclick="addStock()" 
+          style="padding:8px 15px; border:none; background:#333; color:white; border-radius:6px; cursor:pointer;">
+    Add Stock
+  </button>
+</div>
+
 <table id="stockTable">
   <thead>
     <tr>
@@ -72,28 +84,40 @@
 <div id="info">Loading...</div>
 
 <script>
-  // ------------------------------
-  // BACKEND URL
-  // ------------------------------
   const backend = "https://stock-analysis-module.onrender.com";
 
-  // ------------------------------
-  // Number formatter (FIXED BUG!!)
-  // ------------------------------
   function formatNum(n) {
-    if (n === null || n === undefined || n === "N/A") return "N/A";
-    return Number(n).toFixed(2);
+    return n === null || n === undefined ? "N/A" : Number(n).toFixed(2);
   }
 
-  // ------------------------------
-  // Load Data Into Table
-  // ------------------------------
+  async function addStock() {
+    const ticker = document.getElementById("newStock").value.trim().toUpperCase();
+
+    if (!ticker.endsWith(".NS")) {
+      alert("Ticker must end with .NS (example: RELIANCE.NS)");
+      return;
+    }
+
+    const res = await fetch(`${backend}/add_stock`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker })
+    });
+
+    const out = await res.json();
+
+    if (out.ok) {
+      alert(`Added: ${ticker}`);
+      fetchStatus();
+    } else {
+      alert(out.error || "Failed to add stock");
+    }
+
+    document.getElementById("newStock").value = "";
+  }
+
   function addRow(name, data) {
-    const colors = {
-      AMBER: "orange",
-      RED: "red",
-      UNKNOWN: "gray"
-    };
+    const colors = { AMBER: "orange", RED: "red", UNKNOWN: "gray" };
 
     const tbody = document.querySelector("#stockTable tbody");
 
@@ -114,23 +138,19 @@
     tbody.appendChild(row);
   }
 
-  // ------------------------------
-  // Fetch Status
-  // ------------------------------
   async function fetchStatus() {
     try {
       const res = await fetch(`${backend}/status`);
       const data = await res.json();
 
       const tbody = document.querySelector("#stockTable tbody");
-      tbody.innerHTML = ""; // clear old rows
+      tbody.innerHTML = "";
 
       for (const [name, stock] of Object.entries(data.stocks)) {
         addRow(name, stock);
       }
 
-      document.getElementById("info").innerText =
-        "Last updated: " + data.time;
+      document.getElementById("info").innerText = "Last updated: " + data.time;
 
     } catch (err) {
       console.error(err);
@@ -138,7 +158,6 @@
     }
   }
 
-  // Initial load + auto-refresh every 3 sec
   fetchStatus();
   setInterval(fetchStatus, 3000);
 </script>

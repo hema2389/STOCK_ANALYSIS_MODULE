@@ -6,21 +6,17 @@ from contextlib import asynccontextmanager
 
 import pytz
 import yfinance as yf
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 # ---------------------------------------------------------
 # CONFIG
 # ---------------------------------------------------------
-STOCKS = os.getenv("STOCKS", "RELIANCE.NS,SBIN.NS").split(",")
-PERSIST_FILE = os.getenv("PERSIST_FILE", "hl.json")
+PERSIST_FILE = "hl.json"
 INDIA = pytz.timezone("Asia/Kolkata")
+POLL_SECONDS = 4   # price refresh speed
 
-FETCH_HOUR = int(os.getenv("FETCH_HOUR", "10"))
-FETCH_MINUTE = int(os.getenv("FETCH_MINUTE", "30"))
-POLL_SECONDS = int(os.getenv("POLL_SECONDS", "4"))
-
-state = {}   # dynamic live state
+state = {}   # dynamic stock state (also used as stock list)
 
 
 # ---------------------------------------------------------
@@ -33,8 +29,8 @@ def load_persist():
             with open(PERSIST_FILE, "r") as f:
                 state = json.load(f)
                 print("Loaded persist:", state)
-    except Exception as e:
-        print("Error loading persist:", e)
+    except:
+        pass
 
 
 def save_persist():
@@ -46,77 +42,39 @@ def save_persist():
 
 
 # ---------------------------------------------------------
-# Fetch High/Low (proper)
+# Fetch High/Low
 # ---------------------------------------------------------
 def fetch_high_low_for_stock(ticker):
     try:
-        df = yf.download(
-            tickers=ticker,
-            period="1d",
-            interval="1m",
-            progress=False
-        )
-
+        df = yf.download(ticker, period="1d", interval="1m", progress=False)
         if df is None or df.empty:
             return None
-
         return {
             "high": float(df["High"].max()),
-            "low": float(df["Low"].min())
+            "low": float(df["Low"].min()),
         }
-
-    except Exception as e:
-        print(f"HL fetch error for {ticker}: {e}")
+    except:
         return None
 
 
 # ---------------------------------------------------------
-# SCHEDULED HL FETCH AT 10:30
-# ---------------------------------------------------------
-async def scheduled_fetch():
-    while True:
-        now = datetime.now(INDIA)
-
-        if now.hour == FETCH_HOUR and now.minute == FETCH_MINUTE:
-            print("Running 10:30 scheduled HL fetch...")
-
-            for s in STOCKS:
-                hl = fetch_high_low_for_stock(s)
-                if hl:
-                    state[s]["high"] = hl["high"]
-                    state[s]["low"] = hl["low"]
-                    state[s]["status"] = "RED"
-                    state[s]["trigger_time"] = None
-                    state[s]["trigger_price"] = None
-                    state[s]["last_update"] = now.isoformat()
-
-            save_persist()
-            await asyncio.sleep(61)   # prevent double-trigger
-
-        await asyncio.sleep(5)
-
-
-# ---------------------------------------------------------
-# LIVE MONITOR (ALWAYS RETURNS PRICE)
+# Monitor Live Prices
 # ---------------------------------------------------------
 async def monitor_prices():
     while True:
-
         for s in list(state.keys()):
-
             try:
                 ticker = yf.Ticker(s)
                 hist = ticker.history(period="1d", interval="1m")
 
-                # --- MARKET CLOSED / NO DATA ---
+                # No data → keep last price
                 if hist is None or hist.empty:
                     state[s]["last_price"] = state[s].get("last_price", "N/A")
-                    state[s]["last_checked"] = datetime.now(INDIA).isoformat()
-                    # Keep previous status or UNKNOWN
                     state[s]["status"] = state[s].get("status", "UNKNOWN")
+                    state[s]["last_checked"] = datetime.now(INDIA).isoformat()
                     continue
 
-                # --- LATEST PRICE ALWAYS ---
+                # Latest price
                 latest = float(hist["Close"].iloc[-1])
                 state[s]["last_price"] = latest
                 state[s]["last_checked"] = datetime.now(INDIA).isoformat()
@@ -125,25 +83,18 @@ async def monitor_prices():
                 lo = state[s].get("low")
                 prev_status = state[s].get("status", "UNKNOWN")
 
-                # --- If HL not yet taken (before 10:30) ---
                 if hi is None or lo is None:
                     state[s]["status"] = "UNKNOWN"
-
                 else:
-                    # --- Check breakout ---
                     if latest > hi or latest < lo:
                         state[s]["status"] = "AMBER"
-
                         if prev_status != "AMBER":
                             state[s]["trigger_time"] = datetime.now(INDIA).strftime("%H:%M:%S")
                             state[s]["trigger_price"] = latest
-                            save_persist()
-
                     else:
                         state[s]["status"] = "RED"
 
-                # Save if status changed
-                if state[s]["status"] != prev_status:
+                if prev_status != state[s]["status"]:
                     save_persist()
 
             except Exception as e:
@@ -153,41 +104,20 @@ async def monitor_prices():
 
 
 # ---------------------------------------------------------
-# LIFESPAN (startup/shutdown tasks)
+# Lifespan
 # ---------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Backend starting...")
     load_persist()
 
-    for s in STOCKS:
-        if s not in state:
-            state[s] = {
-                "high": None,
-                "low": None,
-                "status": "UNKNOWN",
-                "trigger_time": None,
-                "trigger_price": None,
-                "last_price": None,
-                "last_checked": None
-            }
-
-    task1 = asyncio.create_task(scheduled_fetch())
-    task2 = asyncio.create_task(monitor_prices())
-
+    task = asyncio.create_task(monitor_prices())
     yield
-
-    task1.cancel()
-    task2.cancel()
-    try:
-        await task1
-        await task2
-    except asyncio.CancelledError:
-        pass
+    task.cancel()
 
 
 # ---------------------------------------------------------
-# APP
+# APP INIT
 # ---------------------------------------------------------
 app = FastAPI(lifespan=lifespan)
 
@@ -210,35 +140,48 @@ def get_status():
     }
 
 
-@app.get("/status/{ticker}")
-def get_single(ticker: str):
-    t = ticker.strip()
-    return state.get(t, {"error": "Ticker not found"})
+# Add new stock dynamically
+@app.post("/add_stock")
+async def add_stock(request: Request):
+    body = await request.json()
+    ticker = body.get("ticker", "").upper().strip()
 
+    if not ticker.endswith(".NS"):
+        return {"ok": False, "error": "Ticker must end with .NS"}
 
-@app.post("/force_fetch/{ticker}")
-def force_fetch(ticker: str):
-    hl = fetch_high_low_for_stock(ticker)
-    if not hl:
-        return {"ok": False, "error": "Cannot fetch"}
+    if ticker in state:
+        return {"ok": False, "error": "Already exists"}
 
-    now = datetime.now(INDIA)
+    # initialize empty stock entry
     state[ticker] = {
-        "high": hl["high"],
-        "low": hl["low"],
-        "status": "RED",
+        "high": None,
+        "low": None,
+        "status": "UNKNOWN",
         "trigger_time": None,
         "trigger_price": None,
         "last_price": None,
-        "last_checked": now.isoformat()
+        "last_checked": None
     }
+
     save_persist()
-    return {"ok": True, "data": state[ticker]}
+    return {"ok": True, "added": ticker}
+
+
+@app.post("/force_hl/{ticker}")
+def force_hl(ticker: str):
+    hl = fetch_high_low_for_stock(ticker)
+    if not hl:
+        return {"ok": False}
+
+    state[ticker]["high"] = hl["high"]
+    state[ticker]["low"] = hl["low"]
+    save_persist()
+    return {"ok": True, "hl": hl}
 
 
 # ---------------------------------------------------------
-# UVICORN (local)
+# UVICORN
 # ---------------------------------------------------------
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    uvicorn.run("main:app", host="0.0.0.0", port=8000)
