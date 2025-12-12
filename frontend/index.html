@@ -111,7 +111,7 @@
   // ------------------------------
   async function fetchStatus() {
     try {
-      const res = await fetch(`${backend}/status`);
+      const res = await fetch(`${backend}`);
       const data = await res.json();
 
       const tbody = document.querySelector("#stockTable tbody");
