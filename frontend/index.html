@@ -74,10 +74,10 @@
 
     <script>
       // ------------------------------
-      // CONFIG
+      // CONFIG (CORRECTED)
       // ------------------------------
-      const backend = (window.BACKEND_URL || "https://your-backend.onrender.com")
-        .replace(/\/$/, "");
+      const backend = "https://stock-analysis-module.onrender.com"
+        .replace(/\/$/, ""); // remove trailing slash if any
 
       // ------------------------------
       // UI Helper: Create Stock Box
@@ -92,14 +92,13 @@
         const dot = document.createElement("div");
         dot.className = "dot";
 
-        // Light color mapping
         const colors = {
           AMBER: "orange",
           RED: "red",
           UNKNOWN: "gray",
         };
-        const c = colors[data.status] || "gray";
 
+        const c = colors[data.status] || "gray";
         dot.style.backgroundColor = c;
         dot.style.boxShadow = `0 0 25px ${c}`;
 
@@ -143,7 +142,8 @@
             container.appendChild(createStockBox(name, stock));
           }
 
-          document.getElementById("info").innerText = "Last updated: " + data.time;
+          document.getElementById("info").innerText =
+            "Last updated: " + data.time;
 
         } catch (error) {
           console.error(error);
