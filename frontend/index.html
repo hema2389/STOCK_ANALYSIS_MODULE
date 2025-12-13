@@ -1,95 +1,107 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Stock Live Monitor</title>
+<title>📊 Stock Live Monitor</title>
 
 <style>
-body {
-  font-family: "Inter", Arial, sans-serif;
-  padding: 20px;
-  background: linear-gradient(145deg, #ffe1e1, #ffecec);
-}
-h1 {
-  text-align: center;
-  margin-bottom: 25px;
-  font-size: 32px;
-  color: #333;
-}
-.container {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-#newStock {
-  padding: 12px;
-  width: 220px;
-  border: 2px solid #ddd;
-  border-radius: 10px;
-  outline: none;
-  font-size: 15px;
-  background: white;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  transition: 0.3s;
-}
-#newStock:focus {
-  border-color: #5a8dee;
-  box-shadow: 0 4px 15px rgba(90,141,238,0.3);
-}
-.btn {
-  padding: 12px 20px;
-  border: none;
-  background: #5a8dee;
-  color: white;
-  border-radius: 10px;
-  font-size: 15px;
-  cursor: pointer;
-  font-weight: 600;
-  box-shadow: 0 3px 10px rgba(90,141,238,0.3);
-  transition: 0.3s;
-}
-.btn:hover {
-  background: #476fcc;
-  transform: translateY(-2px);
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: rgba(255,255,255,0.7);
-  backdrop-filter: blur(8px);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-}
-th {
-  background: #222;
-  color: white;
-  padding: 14px;
-  font-size: 14px;
-  text-transform: uppercase;
-}
-td {
-  padding: 14px;
-  font-size: 15px;
-  border-bottom: 1px solid #eee;
-}
-tr:hover { background-color: rgba(0,0,0,0.03); }
-.dot { height: 14px; width: 14px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-#info { text-align: center; margin-top: 15px; color: #333; }
+  body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: #f4f6fb;
+    padding: 30px;
+  }
+
+  h1 {
+    text-align: center;
+    margin-bottom: 25px;
+  }
+
+  /* Add stock box */
+  .add-box {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 25px;
+  }
+
+  input {
+    padding: 10px 14px;
+    width: 220px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 15px;
+  }
+
+  button {
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: none;
+    background: #4f46e5;
+    color: white;
+    cursor: pointer;
+    font-size: 15px;
+  }
+
+  button:hover {
+    background: #4338ca;
+  }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+  }
+
+  th, td {
+    padding: 12px;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+  }
+
+  th {
+    background: #1f2937;
+    color: white;
+  }
+
+  tr:hover {
+    background: #f9fafb;
+  }
+
+  .dot {
+    height: 14px;
+    width: 14px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+  }
+
+  #info {
+    margin-top: 15px;
+    text-align: center;
+    color: #555;
+    font-size: 14px;
+  }
 </style>
 </head>
 
 <body>
-<h1>📊 Stock Live Monitor</h1>
 
-<div class="container">
-  <input id="newStock" placeholder="Enter stock (e.g., TCS.NS)">
-  <button class="btn" onclick="addStock()">Add</button>
+<h1>📈 Stock Live Monitor</h1>
+
+<!-- Add stock -->
+<div class="add-box">
+  <input id="tickerInput" placeholder="ICICIBANK.NS" />
+  <button onclick="addStock()">Add Stock</button>
 </div>
 
-<table id="stockTable">
+<!-- Table -->
+<table>
   <thead>
     <tr>
       <th>Stock</th>
@@ -101,72 +113,85 @@ tr:hover { background-color: rgba(0,0,0,0.03); }
       <th>Current Low</th>
     </tr>
   </thead>
-  <tbody></tbody>
+  <tbody id="stockBody"></tbody>
 </table>
 
 <div id="info">Loading...</div>
 
 <script>
-const backend = "https://stock-analysis-module.onrender.com";
+/* ===============================
+   CONFIG
+================================ */
+const BACKEND = "https://stock-analysis-module.onrender.com";
 
-function format(x) {
-  if (x === null || x === undefined) return "N/A";
+/* ===============================
+   Helpers
+================================ */
+function fmt(x) {
+  if (x === null || x === undefined) return "—";
   return Number(x).toFixed(2);
 }
 
+/* ===============================
+   Add Stock
+================================ */
 async function addStock() {
-  const t = document.getElementById("newStock").value.trim();
-  if (!t) return alert("Enter a ticker!");
-  try {
-    const res = await fetch(`${backend}/add_stock`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ticker: t})
-    });
-    const data = await res.json();
-    if (data.ok) {
-      alert(`${t} added!`);
-      document.getElementById("newStock").value = "";
-      fetchStatus();
-    } else {
-      alert(data.error);
-    }
-  } catch {
-    alert("Error adding stock");
-  }
+  const inp = document.getElementById("tickerInput");
+  let ticker = inp.value.trim().toUpperCase();
+  if (!ticker) return;
+
+  await fetch(`${BACKEND}/add_stock/${ticker}`, { method: "POST" });
+  inp.value = "";
+  fetchStatus();
 }
 
-function addRow(name, data) {
-  const colors = {AMBER: "orange", RED: "red", UNKNOWN: "gray"};
-  const tbody = document.querySelector("#stockTable tbody");
-  const row = document.createElement("tr");
-  row.innerHTML = `
-    <td><b>${name}</b></td>
-    <td>${format(data.hl_high)}</td>
-    <td>${format(data.hl_low)}</td>
-    <td>${format(data.last_price)}</td>
-    <td><span class="dot" style="background:${colors[data.status]}"></span>${data.status}</td>
-    <td>${format(data.current_high)}</td>
-    <td>${format(data.current_low)}</td>
-  `;
-  tbody.appendChild(row);
-}
-
+/* ===============================
+   Load Status
+================================ */
 async function fetchStatus() {
   try {
-    const res = await fetch(`${backend}/status`);
+    const res = await fetch(`${BACKEND}/status`);
     const data = await res.json();
-    const tbody = document.querySelector("#stockTable tbody");
+
+    const tbody = document.getElementById("stockBody");
     tbody.innerHTML = "";
-    for (const [name, stock] of Object.entries(data.stocks)) {
-      addRow(name, stock);
+
+    const colors = {
+      AMBER: "orange",
+      RED: "red",
+      UNKNOWN: "gray",
+      MARKET_CLOSED: "black"
+    };
+
+    for (const [name, s] of Object.entries(data.stocks)) {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td><strong>${name}</strong></td>
+        <td>${fmt(s.open_high)}</td>
+        <td>${fmt(s.open_low)}</td>
+        <td>${fmt(s.last_price)}</td>
+        <td>
+          <span class="dot" style="background:${colors[s.status] || "gray"}"></span>
+          ${s.status}
+        </td>
+        <td>${fmt(s.current_high)}</td>
+        <td>${fmt(s.current_low)}</td>
+      `;
+      tbody.appendChild(row);
     }
-    document.getElementById("info").innerText = "Last updated: " + data.time;
-  } catch {
-    document.getElementById("info").innerText = "Error fetching data";
+
+    document.getElementById("info").innerText =
+      "Last updated: " + data.time;
+
+  } catch (e) {
+    console.error(e);
+    document.getElementById("info").innerText = "Backend not reachable";
   }
 }
 
+/* ===============================
+   Auto refresh
+================================ */
 fetchStatus();
 setInterval(fetchStatus, 3000);
 </script>

@@ -1,6 +1,5 @@
 fastapi
-uvicorn[standard]
+uvicorn
 yfinance
+pandas
 pytz
-python-dateutil
-requests
