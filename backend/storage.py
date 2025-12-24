@@ -1,231 +1,47 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+from sqlalchemy import create_engine, Column, String, Float, Date
+from sqlalchemy.orm import declarative_base, sessionmaker
+from datetime import date
 
-<title>Stock Live Monitor</title>
+engine = create_engine(
+    "sqlite:///stocks.db",
+    connect_args={"check_same_thread": False}
+)
 
-<style>
-  :root {
-    --bg: #fff1e6;
-    --card: #0f172a;
-    --primary: #6d5dfc;
-    --green: #22c55e;
-    --red: #ef4444;
-    --amber: #f59e0b;
-    --pink: #ff1694;
-    --neutral: #9ca3af;
-    --text-dark: #020617;
-  }
+SessionLocal = sessionmaker(bind=engine)
 
-  * {
-    box-sizing: border-box;
-    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont;
-  }
+Base = declarative_base()
 
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text-dark);
-  }
+class Stock(Base):
+    __tablename__ = "stocks"
 
-  .container {
-    max-width: 1100px;
-    margin: 32px auto;
-    padding: 14px;
-  }
+    symbol = Column(String, primary_key=True)
 
-  .title {
-    text-align: center;
-    font-size: 30px;
-    font-weight: 800;
-    margin-bottom: 20px;
-  }
+    # 10:30 reference
+    high_1030 = Column(Float)
+    low_1030 = Column(Float)
 
-  .input-bar {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin-bottom: 20px;
-  }
+    # Live intraday
+    last_price = Column(Float)
+    current_high = Column(Float)
+    current_low = Column(Float)
 
-  .input-bar input {
-    width: 260px;
-    padding: 12px;
-    border-radius: 10px;
-    border: 1px solid #d4d4d8;
-    font-size: 15px;
-  }
+    # Status
+    status = Column(String, default="NEUTRAL")
 
-  .input-bar button {
-    padding: 12px 18px;
-    border-radius: 10px;
-    border: none;
-    background: var(--primary);
-    color: white;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-  }
+    # Trading day
+    trading_date = Column(Date, default=date.today)
 
-  table {
-    width: 100%;
-    table-layout: fixed;
-    border-collapse: collapse;
-  }
+    # End of Day (frozen after 3:30)
+    eod_price = Column(Float)
+    eod_high = Column(Float)
+    eod_low = Column(Float)
+    eod_date = Column(Date)
 
-  thead th {
-    background: var(--card);
-    color: white;
-    padding: 10px 6px;
-    font-size: 13px;
-    font-weight: 600;
-  }
+Base.metadata.create_all(engine)
 
-  thead th:first-child {
-    border-top-left-radius: 12px;
-    border-bottom-left-radius: 12px;
-  }
-
-  thead th:last-child {
-    border-top-right-radius: 12px;
-    border-bottom-right-radius: 12px;
-  }
-
-  tbody td {
-    padding: 10px 6px;
-    text-align: center;
-    font-size: 13px;
-    border-bottom: 1px solid #e5e7eb;
-    word-break: break-word;
-  }
-
-  tbody td:first-child {
-    font-weight: 600;
-  }
-
-  .GREEN { color: var(--green); font-weight: 700; }
-  .RED { color: var(--red); font-weight: 700; }
-  .AMBER { color: var(--amber); font-weight: 700; }
-  .PINK { color: var(--pink); font-weight: 700; }
-  .NEUTRAL { color: var(--neutral); font-weight: 700; }
-
-  .loading {
-    text-align: center;
-    padding: 20px;
-    font-size: 14px;
-    color: #475569;
-  }
-
-  /* MOBILE OPTIMIZATION */
-  @media (max-width: 768px) {
-
-    .title {
-      font-size: 22px;
-    }
-
-    .input-bar {
-      flex-direction: column;
-    }
-
-    .input-bar input,
-    .input-bar button {
-      width: 100%;
-    }
-
-    th, td {
-      font-size: 11px;
-      padding: 6px 4px;
-    }
-
-    .hide-mobile {
-      display: none;
-    }
-  }
-</style>
-</head>
-
-<body>
-
-<div class="container">
-
-  <div class="title">📈 Stock Live Monitor</div>
-
-  <div class="input-bar">
-    <input id="symbolInput" placeholder="ICICIBANK.NS" />
-    <button onclick="addStock()">Add Stock</button>
-  </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th>Stock</th>
-        <th class="hide-mobile">10:30 High</th>
-        <th class="hide-mobile">10:30 Low</th>
-        <th>Price</th>
-        <th>Status</th>
-        <th class="hide-mobile">Cur High</th>
-        <th class="hide-mobile">Cur Low</th>
-      </tr>
-    </thead>
-
-    <tbody id="tableBody">
-      <tr>
-        <td colspan="7" class="loading">Loading...</td>
-      </tr>
-    </tbody>
-  </table>
-
-</div>
-
-<script>
-  const API_BASE = "https://stock-analysis-module.onrender.com";
-
-  async function fetchStocks() {
-    const tbody = document.getElementById("tableBody");
-
-    try {
-      const res = await fetch(`${API_BASE}/stocks`);
-      const data = await res.json();
-
-      if (!data.length) {
-        tbody.innerHTML =
-          `<tr><td colspan="7" class="loading">No stocks added</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = data.map(s => `
-        <tr>
-          <td>${s.symbol}</td>
-          <td class="hide-mobile">${s.high_1030 ?? "-"}</td>
-          <td class="hide-mobile">${s.low_1030 ?? "-"}</td>
-          <td>${s.last_price ?? "-"}</td>
-          <td class="${s.status}">${s.status}</td>
-          <td class="hide-mobile">${s.current_high ?? "-"}</td>
-          <td class="hide-mobile">${s.current_low ?? "-"}</td>
-        </tr>
-      `).join("");
-
-    } catch {
-      tbody.innerHTML =
-        `<tr><td colspan="7" class="loading">Backend not reachable</td></tr>`;
-    }
-  }
-
-  async function addStock() {
-    const input = document.getElementById("symbolInput");
-    const symbol = input.value.trim();
-    if (!symbol) return;
-
-    await fetch(`${API_BASE}/add/${symbol}`, { method: "POST" });
-    input.value = "";
-    fetchStocks();
-  }
-
-  fetchStocks();
-  setInterval(fetchStocks, 3000);
-</script>
-
-</body>
-</html>
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
