@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Stock Live Monitor</title>
 
 <style>
@@ -12,7 +13,9 @@
     --primary: #6d5dfc;
     --green: #22c55e;
     --red: #ef4444;
-    --neutral: #eab308;
+    --amber: #f59e0b;
+    --pink: #ff1694;
+    --neutral: #9ca3af;
     --text-dark: #020617;
   }
 
@@ -29,20 +32,16 @@
 
   .container {
     max-width: 1100px;
-    margin: 60px auto;
-    padding: 20px;
+    margin: 40px auto;
+    padding: 16px;
   }
 
-  /* Header */
+  /* Title */
   .title {
     text-align: center;
-    font-size: 36px;
+    font-size: 32px;
     font-weight: 800;
-    margin-bottom: 30px;
-  }
-
-  .title span {
-    margin-right: 10px;
+    margin-bottom: 24px;
   }
 
   /* Input bar */
@@ -50,7 +49,7 @@
     display: flex;
     justify-content: center;
     gap: 12px;
-    margin-bottom: 30px;
+    margin-bottom: 24px;
   }
 
   .input-bar input {
@@ -58,7 +57,7 @@
     padding: 12px 14px;
     border-radius: 10px;
     border: 1px solid #d4d4d8;
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .input-bar button {
@@ -67,176 +66,130 @@
     border: none;
     background: var(--primary);
     color: white;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
     cursor: pointer;
   }
 
-  .input-bar button:hover {
-    opacity: 0.9;
-  }
-
   /* Table */
-  .table-wrapper {
-    background: transparent;
-    overflow-x: auto;
-  }
-
   table {
     width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
+    table-layout: fixed;
+    border-collapse: collapse;
+    background: transparent;
   }
 
   thead th {
     background: var(--card);
     color: white;
-    padding: 14px;
-    font-size: 14px;
+    padding: 12px 6px;
+    font-size: 13px;
     font-weight: 600;
   }
 
   thead th:first-child {
-    border-top-left-radius: 14px;
-    border-bottom-left-radius: 14px;
+    border-top-left-radius: 12px;
+    border-bottom-left-radius: 12px;
   }
 
   thead th:last-child {
-    border-top-right-radius: 14px;
-    border-bottom-right-radius: 14px;
-  }
-
-  tbody tr {
-    background: transparent;
+    border-top-right-radius: 12px;
+    border-bottom-right-radius: 12px;
   }
 
   tbody td {
-    padding: 16px 14px;
+    padding: 12px 6px;
     text-align: center;
-    font-size: 15px;
+    font-size: 14px;
     border-bottom: 1px solid #e5e7eb;
+    word-wrap: break-word;
   }
 
   tbody td:first-child {
     font-weight: 600;
   }
 
-  .GREEN {
-    color: var(--green);
-    font-weight: 700;
-  }
-  .AMBER {
-  color: #f59e0b;
-  font-weight: 700;
-  }
-  .PINK{
-  COLOR:#FF1694;
-  font-weight: 700;
-  }
-  .RED {
-    color: var(--red);
-    font-weight: 700;
-  }
-
-  .NEUTRAL {
-    color: #808080;
-    font-weight: 700;
-  }
+  /* Status colors */
+  .GREEN { color: var(--green); font-weight: 700; }
+  .RED { color: var(--red); font-weight: 700; }
+  .AMBER { color: var(--amber); font-weight: 700; }
+  .PINK { color: var(--pink); font-weight: 700; }
+  .NEUTRAL { color: var(--neutral); font-weight: 700; }
 
   .loading {
     text-align: center;
-    padding: 30px;
-    font-size: 16px;
+    padding: 24px;
+    font-size: 14px;
     color: #475569;
   }
-  /* ================= MOBILE RESPONSIVE ================= */
 
-.table-wrapper {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
+  /* ================= MOBILE VIEW ================= */
 
-table {
-  min-width: 900px;
-  border-collapse: collapse;
-}
+  @media (max-width: 768px) {
 
-@media (max-width: 768px) {
-  body {
-    font-size: 13px;
+    .container {
+      margin: 16px auto;
+      padding: 10px;
+    }
+
+    .title {
+      font-size: 22px;
+    }
+
+    .input-bar {
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .input-bar input,
+    .input-bar button {
+      width: 100%;
+    }
+
+    th, td {
+      font-size: 11px;
+      padding: 6px 4px;
+    }
+
+    /* Hide non-essential columns on mobile */
+    .hide-mobile {
+      display: none;
+    }
   }
-
-  h1 {
-    font-size: 20px;
-  }
-
-  input {
-    width: 65%;
-    font-size: 14px;
-  }
-
-  button {
-    font-size: 14px;
-    padding: 8px 12px;
-  }
-
-  th, td {
-    padding: 6px 8px;
-    white-space: nowrap;
-  }
-}
-
-/* Status dot */
-.status-dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  margin-right: 6px;
-}
-
-.green { background: #16a34a; }
-.red { background: #dc2626; }
-.amber { background: #f59e0b; }
-.pink { background: #ec4899; }
-.neutral { background: #9ca3af; }
-
 </style>
 </head>
 
 <body>
 
 <div class="container">
-  <div class="title">
-    📈 Stock Live Monitor
-  </div>
+
+  <div class="title">📈 Stock Live Monitor</div>
 
   <div class="input-bar">
     <input id="symbolInput" placeholder="ICICIBANK.NS" />
     <button onclick="addStock()">Add Stock</button>
   </div>
 
-  <div class="table-wrapper">
-    <table>
-      <thead>
-        <tr>
-          <th>Stock</th>
-          <th>10:30 High</th>
-          <th>10:30 Low</th>
-          <th>Current Price</th>
-          <th>Status</th>
-          <th>Current High</th>
-          <th>Current Low</th>
-        </tr>
-      </thead>
-      <tbody id="tableBody">
-        <tr>
-          <td colspan="7" class="loading">Loading...</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Stock</th>
+        <th class="hide-mobile">10:30 High</th>
+        <th class="hide-mobile">10:30 Low</th>
+        <th>Price</th>
+        <th>Status</th>
+        <th class="hide-mobile">Cur High</th>
+        <th class="hide-mobile">Cur Low</th>
+      </tr>
+    </thead>
+
+    <tbody id="tableBody">
+      <tr>
+        <td colspan="7" class="loading">Loading...</td>
+      </tr>
+    </tbody>
+  </table>
+
 </div>
 
 <script>
@@ -250,24 +203,26 @@ table {
       const data = await res.json();
 
       if (!data.length) {
-        tbody.innerHTML = `<tr><td colspan="7" class="loading">No stocks added</td></tr>`;
+        tbody.innerHTML =
+          `<tr><td colspan="7" class="loading">No stocks added</td></tr>`;
         return;
       }
 
       tbody.innerHTML = data.map(s => `
         <tr>
           <td>${s.symbol}</td>
-          <td>${s.high_1030 ?? "-"}</td>
-          <td>${s.low_1030 ?? "-"}</td>
+          <td class="hide-mobile">${s.high_1030 ?? "-"}</td>
+          <td class="hide-mobile">${s.low_1030 ?? "-"}</td>
           <td>${s.last_price ?? "-"}</td>
           <td class="${s.status}">${s.status}</td>
-          <td>${s.current_high ?? "-"}</td>
-          <td>${s.current_low ?? "-"}</td>
+          <td class="hide-mobile">${s.current_high ?? "-"}</td>
+          <td class="hide-mobile">${s.current_low ?? "-"}</td>
         </tr>
       `).join("");
 
-    } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="7" class="loading">Backend not reachable</td></tr>`;
+    } catch {
+      tbody.innerHTML =
+        `<tr><td colspan="7" class="loading">Backend not reachable</td></tr>`;
     }
   }
 
@@ -281,16 +236,9 @@ table {
     fetchStocks();
   }
 
-  setInterval(fetchStocks, 3000);
   fetchStocks();
+  setInterval(fetchStocks, 3000);
 </script>
 
 </body>
 </html>
-
-
-
-
-
-
-
