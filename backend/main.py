@@ -39,15 +39,34 @@ def init_defaults():
 def reset_trading_day():
     db = next(get_db())
     today = date.today()
+
     for stock in db.query(Stock).all():
         stock.high_1030 = None
         stock.low_1030 = None
         stock.last_price = None
+        stock.current_high = None
+        stock.current_low = None
         stock.status = "NEUTRAL"
         stock.trading_date = today
+
     db.commit()
 
 # ---------- FETCH & UPDATE ----------
+def capture_eod():
+    db = next(get_db())
+    today = date.today()
+
+    for stock in db.query(Stock).all():
+        if stock.eod_date == today:
+            continue  # already captured
+
+        stock.eod_price = stock.last_price
+        stock.eod_high = stock.current_high
+        stock.eod_low = stock.current_low
+        stock.eod_date = today
+
+    db.commit()
+    
 def update_prices():
     if not time(9, 15) <= now <= time(15, 30):
         return
@@ -64,6 +83,12 @@ def update_prices():
         # ---- LAST PRICE ----
         last_price = round(float(data["Close"].iloc[-1]), 2)
         stock.last_price = last_price
+        # Update current high / low continuously
+        if stock.current_high is None or stock.last_price > stock.current_high:
+            stock.current_high = stock.last_price
+        
+        if stock.current_low is None or stock.last_price < stock.current_low:
+            stock.current_low = stock.last_price
 
         # ---- CAPTURE 10:30 HIGH / LOW (ONCE) ----
         if stock.high_1030 is None and now >= time(10, 30):
@@ -145,8 +170,16 @@ def add_stock(symbol: str, db: Session = Depends(get_db)):
     
 # ---------- SCHEDULER ----------
 scheduler = BackgroundScheduler(timezone=IST)
+
+# Reset at market open
 scheduler.add_job(reset_trading_day, "cron", hour=9, minute=15)
-scheduler.add_job(update_prices, "interval", seconds=3)
+
+# Update prices
+scheduler.add_job(update_prices, "interval", seconds=15)
+
+# 🔒 Freeze EOD at 3:30 PM
+scheduler.add_job(capture_eod, "cron", hour=15, minute=30)
+
 scheduler.start()
 
 # ---------- API ----------
