@@ -10,7 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 # ================= CONFIG =================
 IST = pytz.timezone("Asia/Kolkata")
 PROXIMITY_PCT = 0.0025  # 0.25%
-DEFAULT_SCRIPS = ["ICICIBANK.NS", "INFY.NS", "RELIANCE.NS"]
+DEFAULT_SCRIPS = ["ICICIBANK.NS","VEDL.NS","RECLTD.NS",
+    "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "SWANCORP.NS",
+    "LT.NS", "SBIN.NS", "AXISBANK.NS", "BHARTIARTL.NS", "HINDUNILVR.NS"
+]
 
 # =========================================
 
