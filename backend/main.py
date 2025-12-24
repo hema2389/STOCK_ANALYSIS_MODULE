@@ -59,17 +59,18 @@ def update_prices():
         if data.empty:
             continue
 
-        stock.last_price = float(data["Close"].iloc[-1])
+        # ✅ last price (2 decimals)
+        stock.last_price = round(float(data["Close"].iloc[-1]), 2)
 
         # Capture exactly ONCE after 10:30
         if stock.high_1030 is None and now >= time(10, 30):
             slice_data = data.between_time("09:15", "10:30")
             if not slice_data.empty:
-                stock.high_1030 = float(slice_data["High"].max())
-                stock.low_1030 = float(slice_data["Low"].min())
+                stock.high_1030 = round(float(slice_data["High"].max()), 2)
+                stock.low_1030 = round(float(slice_data["Low"].min()), 2)
 
         # STATUS LOGIC
-        if stock.high_1030 and stock.low_1030:
+        if stock.high_1030 is not None and stock.low_1030 is not None:
             P = stock.last_price
             H = stock.high_1030
             L = stock.low_1030
@@ -80,19 +81,17 @@ def update_prices():
             elif P < L:
                 stock.status = "RED"
 
-            elif (
-                H * (1 - PROXIMITY_PCT) <= P <= H * (1 + PROXIMITY_PCT)
-            ):
+            elif H * (1 - PROXIMITY_PCT) <= P <= H * (1 + PROXIMITY_PCT):
                 stock.status = "AMBER"
-            elif(L * (1 - PROXIMITY_PCT) <= P <= L * (1 + PROXIMITY_PCT)
-            ):
+
+            elif L * (1 - PROXIMITY_PCT) <= P <= L * (1 + PROXIMITY_PCT):
                 stock.status = "PINK"
 
             else:
                 stock.status = "NEUTRAL"
 
     db.commit()
-
+    
 # ---------- SCHEDULER ----------
 scheduler = BackgroundScheduler(timezone=IST)
 scheduler.add_job(reset_trading_day, "cron", hour=9, minute=15)
