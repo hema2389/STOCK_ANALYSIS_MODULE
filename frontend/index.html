@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta charset="UTF-8" />
 <title>Stock Live Monitor</title>
 
@@ -148,6 +149,59 @@
     font-size: 16px;
     color: #475569;
   }
+  /* ================= MOBILE RESPONSIVE ================= */
+
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  min-width: 900px;
+  border-collapse: collapse;
+}
+
+@media (max-width: 768px) {
+  body {
+    font-size: 13px;
+  }
+
+  h1 {
+    font-size: 20px;
+  }
+
+  input {
+    width: 65%;
+    font-size: 14px;
+  }
+
+  button {
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+
+  th, td {
+    padding: 6px 8px;
+    white-space: nowrap;
+  }
+}
+
+/* Status dot */
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.green { background: #16a34a; }
+.red { background: #dc2626; }
+.amber { background: #f59e0b; }
+.pink { background: #ec4899; }
+.neutral { background: #9ca3af; }
+
 </style>
 </head>
 
@@ -233,6 +287,7 @@
 
 </body>
 </html>
+
 
 
 
