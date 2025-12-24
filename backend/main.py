@@ -56,7 +56,7 @@ def update_prices():
         if data.empty:
             continue
 
-        stock.last_price = float(data["Close"][-1])
+        stock.last_price = float(data["Close"].iloc[-1])
 
         # Capture exactly ONCE after 10:30
         if stock.high_1030 is None and now >= time(10, 30):
