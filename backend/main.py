@@ -111,3 +111,6 @@ def add_stock(symbol: str, db: Session = Depends(get_db)):
     db.add(Stock(symbol=symbol))
     db.commit()
     return {"message": "Added"}
+@app.get("/status")
+def status():
+    return {"status": "ok"}
