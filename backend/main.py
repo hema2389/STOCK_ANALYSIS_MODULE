@@ -82,10 +82,11 @@ def update_prices():
 
             elif (
                 H * (1 - PROXIMITY_PCT) <= P <= H * (1 + PROXIMITY_PCT)
-                or
-                L * (1 - PROXIMITY_PCT) <= P <= L * (1 + PROXIMITY_PCT)
             ):
                 stock.status = "AMBER"
+            elif(L * (1 - PROXIMITY_PCT) <= P <= L * (1 + PROXIMITY_PCT)
+            ):
+                stock.status = "PINK"
 
             else:
                 stock.status = "NEUTRAL"
