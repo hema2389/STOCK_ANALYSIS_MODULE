@@ -59,17 +59,31 @@ def update_prices():
         if data.empty:
             continue
 
-        # ✅ last price (2 decimals)
-        stock.last_price = round(float(data["Close"].iloc[-1]), 2)
+        # ---- LAST PRICE ----
+        last_price = round(float(data["Close"].iloc[-1]), 2)
+        stock.last_price = last_price
 
-        # Capture exactly ONCE after 10:30
+        # ---- CAPTURE 10:30 HIGH / LOW (ONCE) ----
         if stock.high_1030 is None and now >= time(10, 30):
-            slice_data = data.between_time("09:15", "10:30")
-            if not slice_data.empty:
-                stock.high_1030 = round(float(slice_data["High"].max()), 2)
-                stock.low_1030 = round(float(slice_data["Low"].min()), 2)
+            slice_1030 = data.between_time("09:15", "10:30")
 
-        # STATUS LOGIC
+            if not slice_1030.empty:
+                stock.high_1030 = round(float(slice_1030["High"].max()), 2)
+                stock.low_1030 = round(float(slice_1030["Low"].min()), 2)
+
+                # initialize current high/low at 10:30
+                stock.current_high = stock.high_1030
+                stock.current_low = stock.low_1030
+
+        # ---- UPDATE CURRENT HIGH / LOW (AFTER 10:30) ----
+        if stock.high_1030 is not None:
+            if stock.current_high is None or last_price > stock.current_high:
+                stock.current_high = round(last_price, 2)
+
+            if stock.current_low is None or last_price < stock.current_low:
+                stock.current_low = round(last_price, 2)
+
+        # ---- STATUS LOGIC ----
         if stock.high_1030 is not None and stock.low_1030 is not None:
             P = stock.last_price
             H = stock.high_1030
@@ -91,6 +105,7 @@ def update_prices():
                 stock.status = "NEUTRAL"
 
     db.commit()
+
     
 # ---------- SCHEDULER ----------
 scheduler = BackgroundScheduler(timezone=IST)
