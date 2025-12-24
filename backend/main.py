@@ -50,7 +50,7 @@ def reset_trading_day():
 # ---------- FETCH & UPDATE ----------
 def update_prices():
     if not time(9, 15) <= now <= time(15, 30):
-    return
+        return
     db = next(get_db())
     now = datetime.now(IST).time()
 
