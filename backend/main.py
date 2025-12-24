@@ -5,6 +5,15 @@ from datetime import datetime, time, date
 import yfinance as yf
 import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ================= CONFIG =================
 IST = pytz.timezone("Asia/Kolkata")
