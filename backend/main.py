@@ -7,14 +7,6 @@ import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi.middleware.cors import CORSMiddleware
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # ================= CONFIG =================
 IST = pytz.timezone("Asia/Kolkata")
 PROXIMITY_PCT = 0.0025  # 0.25%
@@ -24,6 +16,13 @@ DEFAULT_SCRIPS = ["ICICIBANK.NS", "INFY.NS", "RELIANCE.NS"]
 
 app = FastAPI(title="NSE 10:30 Monitor")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # ---------- INIT DEFAULT STOCKS ----------
 @app.on_event("startup")
 def init_defaults():
