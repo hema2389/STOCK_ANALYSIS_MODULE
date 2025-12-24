@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # ================= CONFIG =================
 IST = pytz.timezone("Asia/Kolkata")
-PROXIMITY_PCT = 0.0025  # 0.25%
+PROXIMITY_PCT = 0.001  # 0.1%
 DEFAULT_SCRIPS = ["ICICIBANK.NS","VEDL.NS","RECLTD.NS",
     "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "SWANCORP.NS",
     "LT.NS", "SBIN.NS", "AXISBANK.NS", "BHARTIARTL.NS", "HINDUNILVR.NS"
@@ -49,6 +49,8 @@ def reset_trading_day():
 
 # ---------- FETCH & UPDATE ----------
 def update_prices():
+    if not time(9, 15) <= now <= time(15, 30):
+    return
     db = next(get_db())
     now = datetime.now(IST).time()
 
@@ -66,10 +68,10 @@ def update_prices():
         # ---- CAPTURE 10:30 HIGH / LOW (ONCE) ----
         if stock.high_1030 is None and now >= time(10, 30):
             slice_1030 = data.between_time("09:15", "10:30")
-
             if not slice_1030.empty:
                 stock.high_1030 = round(float(slice_1030["High"].max()), 2)
                 stock.low_1030 = round(float(slice_1030["Low"].min()), 2)
+
 
                 # initialize current high/low at 10:30
                 stock.current_high = stock.high_1030
@@ -106,11 +108,45 @@ def update_prices():
 
     db.commit()
 
+@app.post("/add/{symbol}")
+def add_stock(symbol: str, db: Session = Depends(get_db)):
+    if not symbol.endswith(".NS"):
+        symbol += ".NS"
+
+    if db.query(Stock).filter_by(symbol=symbol).first():
+        return {"message": "Already exists"}
+
+    stock = Stock(symbol=symbol)
+    db.add(stock)
+    db.commit()
+
+    # ---- IMMEDIATE DATA FETCH IF AFTER 10:30 ----
+    now = datetime.now(IST).time()
+
+    if now >= time(10, 30):
+        ticker = yf.Ticker(symbol)
+        data = ticker.history(interval="1m", period="1d")
+
+        if not data.empty:
+            slice_1030 = data.between_time("09:15", "10:30")
+
+            if not slice_1030.empty:
+                stock.high_1030 = round(float(slice_1030["High"].max()), 2)
+                stock.low_1030 = round(float(slice_1030["Low"].min()), 2)
+
+                last_price = round(float(data["Close"].iloc[-1]), 2)
+                stock.last_price = last_price
+                stock.current_high = last_price
+                stock.current_low = last_price
+
+    db.commit()
+    return {"message": "Added"}
+
     
 # ---------- SCHEDULER ----------
 scheduler = BackgroundScheduler(timezone=IST)
 scheduler.add_job(reset_trading_day, "cron", hour=9, minute=15)
-scheduler.add_job(update_prices, "interval", seconds=60)
+scheduler.add_job(update_prices, "interval", seconds=3)
 scheduler.start()
 
 # ---------- API ----------
