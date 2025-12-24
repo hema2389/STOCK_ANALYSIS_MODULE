@@ -32,36 +32,34 @@
 
   .container {
     max-width: 1100px;
-    margin: 40px auto;
-    padding: 16px;
+    margin: 32px auto;
+    padding: 14px;
   }
 
-  /* Title */
   .title {
     text-align: center;
-    font-size: 32px;
+    font-size: 30px;
     font-weight: 800;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
   }
 
-  /* Input bar */
   .input-bar {
     display: flex;
     justify-content: center;
-    gap: 12px;
-    margin-bottom: 24px;
+    gap: 10px;
+    margin-bottom: 20px;
   }
 
   .input-bar input {
     width: 260px;
-    padding: 12px 14px;
+    padding: 12px;
     border-radius: 10px;
     border: 1px solid #d4d4d8;
     font-size: 15px;
   }
 
   .input-bar button {
-    padding: 12px 20px;
+    padding: 12px 18px;
     border-radius: 10px;
     border: none;
     background: var(--primary);
@@ -71,18 +69,16 @@
     cursor: pointer;
   }
 
-  /* Table */
   table {
     width: 100%;
     table-layout: fixed;
     border-collapse: collapse;
-    background: transparent;
   }
 
   thead th {
     background: var(--card);
     color: white;
-    padding: 12px 6px;
+    padding: 10px 6px;
     font-size: 13px;
     font-weight: 600;
   }
@@ -98,18 +94,17 @@
   }
 
   tbody td {
-    padding: 12px 6px;
+    padding: 10px 6px;
     text-align: center;
-    font-size: 14px;
+    font-size: 13px;
     border-bottom: 1px solid #e5e7eb;
-    word-wrap: break-word;
+    word-break: break-word;
   }
 
   tbody td:first-child {
     font-weight: 600;
   }
 
-  /* Status colors */
   .GREEN { color: var(--green); font-weight: 700; }
   .RED { color: var(--red); font-weight: 700; }
   .AMBER { color: var(--amber); font-weight: 700; }
@@ -118,19 +113,13 @@
 
   .loading {
     text-align: center;
-    padding: 24px;
+    padding: 20px;
     font-size: 14px;
     color: #475569;
   }
 
-  /* ================= MOBILE VIEW ================= */
-
+  /* MOBILE OPTIMIZATION */
   @media (max-width: 768px) {
-
-    .container {
-      margin: 16px auto;
-      padding: 10px;
-    }
 
     .title {
       font-size: 22px;
@@ -138,7 +127,6 @@
 
     .input-bar {
       flex-direction: column;
-      gap: 8px;
     }
 
     .input-bar input,
@@ -151,7 +139,6 @@
       padding: 6px 4px;
     }
 
-    /* Hide non-essential columns on mobile */
     .hide-mobile {
       display: none;
     }
