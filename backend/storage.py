@@ -2,8 +2,10 @@ from sqlalchemy import create_engine, Column, String, Float, Date
 from sqlalchemy.orm import declarative_base, sessionmaker
 from datetime import date
 
+DATABASE_URL = "sqlite:///stocks.db"
+
 engine = create_engine(
-    "sqlite:///stocks.db",
+    DATABASE_URL,
     connect_args={"check_same_thread": False}
 )
 
@@ -20,7 +22,7 @@ class Stock(Base):
     high_1030 = Column(Float)
     low_1030 = Column(Float)
 
-    # Live intraday
+    # Live
     last_price = Column(Float)
     current_high = Column(Float)
     current_low = Column(Float)
@@ -28,10 +30,10 @@ class Stock(Base):
     # Status
     status = Column(String, default="NEUTRAL")
 
-    # Trading day
+    # Day
     trading_date = Column(Date, default=date.today)
 
-    # End of Day (frozen after 3:30)
+    # EOD
     eod_price = Column(Float)
     eod_high = Column(Float)
     eod_low = Column(Float)
