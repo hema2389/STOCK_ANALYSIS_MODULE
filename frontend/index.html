@@ -83,16 +83,6 @@
     font-weight: 600;
   }
 
-  thead th:first-child {
-    border-top-left-radius: 12px;
-    border-bottom-left-radius: 12px;
-  }
-
-  thead th:last-child {
-    border-top-right-radius: 12px;
-    border-bottom-right-radius: 12px;
-  }
-
   tbody td {
     padding: 10px 6px;
     text-align: center;
@@ -118,30 +108,8 @@
     color: #475569;
   }
 
-  /* MOBILE OPTIMIZATION */
   @media (max-width: 768px) {
-
-    .title {
-      font-size: 22px;
-    }
-
-    .input-bar {
-      flex-direction: column;
-    }
-
-    .input-bar input,
-    .input-bar button {
-      width: 100%;
-    }
-
-    th, td {
-      font-size: 11px;
-      padding: 6px 4px;
-    }
-
-    .hide-mobile {
-      display: none;
-    }
+    .hide-mobile { display: none; }
   }
 </style>
 </head>
@@ -169,7 +137,6 @@
         <th class="hide-mobile">Cur Low</th>
       </tr>
     </thead>
-
     <tbody id="tableBody">
       <tr>
         <td colspan="7" class="loading">Loading...</td>
@@ -222,6 +189,11 @@
     input.value = "";
     fetchStocks();
   }
+
+  /* 🔒 KEEP RENDER ALIVE */
+  setInterval(() => {
+    fetch(`${API_BASE}/status`);
+  }, 60000);
 
   fetchStocks();
   setInterval(fetchStocks, 3000);
