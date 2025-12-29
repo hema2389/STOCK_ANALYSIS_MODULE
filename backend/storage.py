@@ -10,7 +10,6 @@ engine = create_engine(
 )
 
 SessionLocal = sessionmaker(bind=engine)
-
 Base = declarative_base()
 
 class Stock(Base):
@@ -18,22 +17,18 @@ class Stock(Base):
 
     symbol = Column(String, primary_key=True)
 
-    # 10:30 reference
     high_1030 = Column(Float)
     low_1030 = Column(Float)
 
-    # Live
     last_price = Column(Float)
     current_high = Column(Float)
     current_low = Column(Float)
 
-    # Status
     status = Column(String, default="NEUTRAL")
 
-    # Day
     trading_date = Column(Date, default=date.today)
 
-    # EOD
+    # EOD snapshot (FINAL)
     eod_price = Column(Float)
     eod_high = Column(Float)
     eod_low = Column(Float)
