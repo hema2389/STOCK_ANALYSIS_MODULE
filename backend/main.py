@@ -99,9 +99,46 @@ def update_prices():
     for stock in db.query(Stock).all():
 
         # If market closed → keep EOD values
+        # -------- MARKET CLOSED BOOTSTRAP --------
         if now > MARKET_CLOSE:
-            stock.status = "MARKET_CLOSED"
+        
+            # If EOD already captured, just show it
+            if stock.eod_date == today:
+                stock.last_price = stock.eod_price
+                stock.current_high = stock.eod_high
+                stock.current_low = stock.eod_low
+                stock.status = "MARKET_CLOSED"
+                continue
+        
+            # First run AFTER market close (deployment case)
+            try:
+                df = yf.download(
+                    stock.symbol,
+                    period="1d",
+                    interval="1d"
+                )
+        
+                if not df.empty:
+                    close = round(float(df["Close"].iloc[-1]), 2)
+                    high = round(float(df["High"].iloc[-1]), 2)
+                    low = round(float(df["Low"].iloc[-1]), 2)
+        
+                    stock.last_price = close
+                    stock.current_high = high
+                    stock.current_low = low
+        
+                    stock.eod_price = close
+                    stock.eod_high = high
+                    stock.eod_low = low
+                    stock.eod_date = today
+        
+                    stock.status = "MARKET_CLOSED"
+        
+            except Exception as e:
+                print("EOD bootstrap error:", stock.symbol, e)
+        
             continue
+
 
         try:
             df = data[stock.symbol] if len(symbols) > 1 else data
