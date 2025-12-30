@@ -37,139 +37,51 @@ def startup():
         if not db.query(Stock).filter_by(symbol=s).first():
             db.add(Stock(symbol=s))
     db.commit()
+
+    update_prices()   # 🔥 FORCE DATA ON WAKE
     print("🚀 Started")
 
-# ---------- RESET DAY ----------
-def reset_trading_day():
-    db = next(get_db())
-    today = date.today()
-
-    for s in db.query(Stock).all():
-        s.high_1030 = None
-        s.low_1030 = None
-        s.last_price = None
-        s.current_high = None
-        s.current_low = None
-        s.status = "NEUTRAL"
-        s.trading_date = today
-
-    db.commit()
-    print("🔄 New trading day")
-
-# ---------- EOD FREEZE ----------
-def capture_eod():
-    db = next(get_db())
-    today = date.today()
-
-    for s in db.query(Stock).all():
-        if s.eod_date == today:
-            continue
-
-        s.eod_price = s.last_price
-        s.eod_high = s.current_high
-        s.eod_low = s.current_low
-        s.eod_date = today
-        s.status = "MARKET_CLOSED"
-
-    db.commit()
-    print("🔒 EOD Captured")
-
-# ---------- UPDATE ----------
+# ---------- UPDATE (STATELESS, SLEEP SAFE) ----------
 def update_prices():
-    now = datetime.now(IST).time()
-    today = date.today()
-
-    if date.today().weekday() >= 5:
-        return
-
     db = next(get_db())
-    symbols = [s.symbol for s in db.query(Stock).all()]
-
-    if not symbols:
-        return
-
-    data = yf.download(
-        symbols,
-        interval="1m",
-        period="1d",
-        group_by="ticker",
-        threads=True
-    )
+    now = datetime.now(IST)
 
     for stock in db.query(Stock).all():
-
-        # If market closed → keep EOD values
-        # -------- MARKET CLOSED BOOTSTRAP --------
-        if now > MARKET_CLOSE:
-        
-            # If EOD already captured, just show it
-            if stock.eod_date == today:
-                stock.last_price = stock.eod_price
-                stock.current_high = stock.eod_high
-                stock.current_low = stock.eod_low
-                stock.status = "MARKET_CLOSED"
-                continue
-        
-            # First run AFTER market close (deployment case)
-            try:
-                df = yf.download(
-                    stock.symbol,
-                    period="1d",
-                    interval="1d"
-                )
-        
-                if not df.empty:
-                    close = round(float(df["Close"].iloc[-1]), 2)
-                    high = round(float(df["High"].iloc[-1]), 2)
-                    low = round(float(df["Low"].iloc[-1]), 2)
-        
-                    stock.last_price = close
-                    stock.current_high = high
-                    stock.current_low = low
-        
-                    stock.eod_price = close
-                    stock.eod_high = high
-                    stock.eod_low = low
-                    stock.eod_date = today
-        
-                    stock.status = "MARKET_CLOSED"
-        
-            except Exception as e:
-                print("EOD bootstrap error:", stock.symbol, e)
-        
-            continue
-
-
         try:
-            df = data[stock.symbol] if len(symbols) > 1 else data
+            df = yf.download(
+                stock.symbol,
+                interval="1m",
+                period="1d",
+                progress=False,
+                threads=False
+            )
+
             if df.empty:
                 continue
 
             df.index = df.index.tz_localize("UTC").tz_convert(IST)
 
-            last_price = round(float(df["Close"].iloc[-1]), 2)
+            # all data till now
+            live_df = df[df.index.time <= now.time()]
+            if live_df.empty:
+                continue
+
+            last_price = round(float(live_df["Close"].iloc[-1]), 2)
+            cur_high = round(float(live_df["High"].max()), 2)
+            cur_low = round(float(live_df["Low"].min()), 2)
+
             stock.last_price = last_price
+            stock.current_high = cur_high
+            stock.current_low = cur_low
 
-            stock.current_high = (
-                last_price if stock.current_high is None
-                else max(stock.current_high, last_price)
-            )
-            stock.current_low = (
-                last_price if stock.current_low is None
-                else min(stock.current_low, last_price)
-            )
+            # 10:30 levels (RECOMPUTED ALWAYS)
+            ref = live_df.between_time("09:15", "10:30")
+            stock.high_1030 = round(ref["High"].max(), 2) if not ref.empty else None
+            stock.low_1030 = round(ref["Low"].min(), 2) if not ref.empty else None
 
-            # Capture 10:30 exactly once
-            if stock.high_1030 is None and now >= time(10, 30):
-                ref = df.between_time("09:15", "10:30")
-                if not ref.empty:
-                    stock.high_1030 = round(ref["High"].max(), 2)
-                    stock.low_1030 = round(ref["Low"].min(), 2)
-                    stock.current_high = stock.high_1030
-                    stock.current_low = stock.low_1030
-
+            # STATUS (DERIVED)
             if stock.high_1030 and stock.low_1030:
-                P, H, L = stock.last_price, stock.high_1030, stock.low_1030
+                H, L, P = stock.high_1030, stock.low_1030, last_price
                 if P > H:
                     stock.status = "GREEN"
                 elif P < L:
@@ -180,17 +92,25 @@ def update_prices():
                     stock.status = "PINK"
                 else:
                     stock.status = "NEUTRAL"
+            else:
+                stock.status = "NEUTRAL"
+
+            # EOD SNAPSHOT
+            if now.time() > MARKET_CLOSE:
+                stock.eod_price = last_price
+                stock.eod_high = cur_high
+                stock.eod_low = cur_low
+                stock.eod_date = date.today()
+                stock.status = "MARKET_CLOSED"
 
         except Exception as e:
-            print(stock.symbol, e)
+            print("ERROR:", stock.symbol, e)
 
     db.commit()
 
 # ---------- SCHEDULER ----------
 scheduler = BackgroundScheduler(timezone=IST)
-scheduler.add_job(reset_trading_day, "cron", hour=9, minute=15)
 scheduler.add_job(update_prices, "interval", seconds=30)
-scheduler.add_job(capture_eod, "cron", hour=15, minute=30)
 scheduler.start()
 
 # ---------- API ----------
@@ -206,6 +126,7 @@ def add(symbol: str, db: Session = Depends(get_db)):
         return {"msg": "exists"}
     db.add(Stock(symbol=symbol))
     db.commit()
+    update_prices()
     return {"msg": "added"}
 
 @app.get("/status")
