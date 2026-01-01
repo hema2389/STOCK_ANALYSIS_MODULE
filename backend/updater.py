@@ -12,21 +12,35 @@ def update_prices(db):
     for stock in db.query(Stock).all():
         try:
             df = yf.download(
+            stock.symbol,
+            interval="1m",
+            period="1d",
+            progress=False,
+            threads=False
+        )
+        
+        # 🔴 MARKET CLOSED / NO INTRADAY DATA
+        if df.empty:
+            fallback = yf.download(
                 stock.symbol,
-                interval="1m",
-                period="1d",
+                period="5d",
+                interval="1d",
                 progress=False,
                 threads=False
             )
-
-            if df.empty:
+        
+            if fallback.empty:
                 continue
+        
+            last_row = fallback.iloc[-1]
+        
+            stock.last_price = round(float(last_row["Close"]), 2)
+            stock.current_high = round(float(last_row["High"]), 2)
+            stock.current_low = round(float(last_row["Low"]), 2)
+            stock.status = "MARKET_CLOSED"
+        
+            continue
 
-            df.index = df.index.tz_localize("UTC").tz_convert(now.tzinfo)
-
-            live_df = df[df.index.time <= now.time()]
-            if live_df.empty:
-                continue
 
             last_price = round(float(live_df["Close"].iloc[-1]), 2)
             cur_high = round(float(live_df["High"].max()), 2)
