@@ -56,11 +56,14 @@ def update_prices(db):
                     stock.status = "NEUTRAL"
 
             if not market_open():
+                eod = fetch_today_eod(stock.symbol)
+                if eod:
+                    stock.last_price = eod["price"]
+                    stock.current_high = eod["high"]
+                    stock.current_low = eod["low"]
+            
                 stock.status = "MARKET_CLOSED"
-                stock.eod_price = last_price
-                stock.eod_high = cur_high
-                stock.eod_low = cur_low
-                stock.eod_date = date.today()
+
 
         except Exception as e:
             print("ERROR:", stock.symbol, e)
