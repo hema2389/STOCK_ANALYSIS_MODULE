@@ -70,23 +70,23 @@ def update_prices(db):
 
     db.commit()
 def fetch_today_eod(symbol):
-try:
-    df = yf.download(
-        symbol,
-        interval="1d",
-        period="5d",
-        progress=False
-    )
-    if df.empty:
+    try:
+        df = yf.download(
+            symbol,
+            interval="1d",
+            period="5d",
+            progress=False
+        )
+        if df.empty:
+            return None
+    
+        today = df.iloc[-1]
+        return {
+            "price": round(float(today["Close"]), 2),
+            "high": round(float(today["High"]), 2),
+            "low": round(float(today["Low"]), 2),
+            "date": today.name.date()
+        }
+    except:
         return None
-
-    today = df.iloc[-1]
-    return {
-        "price": round(float(today["Close"]), 2),
-        "high": round(float(today["High"]), 2),
-        "low": round(float(today["Low"]), 2),
-        "date": today.name.date()
-    }
-except:
-    return None
 
