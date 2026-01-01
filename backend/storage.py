@@ -17,7 +17,6 @@ class Stock(Base):
 
     symbol = Column(String, primary_key=True)
 
-    # derived intraday values (cached only)
     last_price = Column(Float)
     current_high = Column(Float)
     current_low = Column(Float)
@@ -27,7 +26,6 @@ class Stock(Base):
 
     status = Column(String, default="NEUTRAL")
 
-    # EOD snapshot
     eod_price = Column(Float)
     eod_high = Column(Float)
     eod_low = Column(Float)
