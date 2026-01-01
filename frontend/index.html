@@ -22,6 +22,41 @@
     font-family: Arial, sans-serif;
     background: var(--bg);
   }
+  .add-stock-container {
+    display: flex;
+    justify-content: center;   /* center horizontally */
+    align-items: center;
+    gap: 10px;                 /* space between input & button */
+    margin: 20px auto;
+  }
+  
+  .add-stock-container input {
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    font-size: 14px;
+    width: 160px;
+  }
+  
+  .add-btn {
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: none;
+    background-color: #6c63ff; /* purple like your screenshot */
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  
+  .add-btn:hover {
+    background-color: #5a52d6;
+  }
+  @media (max-width: 480px) {
+    .add-stock-container {
+      flex-direction: row; /* keep side-by-side like your image */
+    }
+  }
 
   h1 {
     text-align: center;
@@ -91,10 +126,10 @@
 <h1>📈 Stock Live Monitor</h1>
 
   <!-- 🔹 ADD STOCK (RESTORED) -->
-<div>
-  <input id="symbolInput" placeholder="Add stock (e.g. ICICIBANK or ICICIBANK.NS)" />
-  <button onclick="addStock()">Add</button>
-</div>div>
+<div class="add-stock-container">
+  <input type="text" placeholder="ICICIBANK.NS" />
+  <button class="add-btn">Add Stock</button>
+</div>
   
 <div class="card">
   <div class="table-container">
@@ -163,5 +198,6 @@ setInterval(loadStocks, 3000); // 🔥 3 seconds refresh
 
 </body>
 </html>
+
 
 
