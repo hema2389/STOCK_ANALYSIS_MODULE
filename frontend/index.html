@@ -35,7 +35,7 @@
     border-radius: 8px;
     border: 1px solid #ddd;
     font-size: 14px;
-    width: 160px;
+    width: 40px;
   }
   
   .add-btn {
@@ -107,11 +107,19 @@
     white-space: nowrap;
   }
 
-  th {
-    background: #020617;
-    position: sticky;
-    top: 0;
+  thead th {
+    background-color: #1e293b;  /* header color */
+    color: #f8fafc;             /* header text */
+    font-weight: 600;
   }
+  thead th:first-child {
+    border-top-left-radius: 8px;
+  }
+  
+  thead th:last-child {
+    border-top-right-radius: 8px;
+  }
+
 
   .GREEN { color: var(--green); font-weight: bold; }
   .RED { color: var(--red); font-weight: bold; }
@@ -198,6 +206,7 @@ setInterval(loadStocks, 3000); // 🔥 3 seconds refresh
 
 </body>
 </html>
+
 
 
 
