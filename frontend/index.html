@@ -8,12 +8,10 @@
 <style>
   :root {
     --bg: #fff1e6;
-    --card: #0f172a;
     --green: #22c55e;
     --red: #ef4444;
     --amber: #f59e0b;
     --pink: #ec4899;
-    --text: #e5e7eb;
   }
 
   body {
@@ -22,65 +20,42 @@
     font-family: Arial, sans-serif;
     background: var(--bg);
   }
-  .add-stock-container {
-    justify-content: center;   /* center horizontally */
-    align-items: center;
-    gap: 10px;                 /* space between input & button */
-    margin: 20px auto;
-  }
-  
-  .add-stock-container input {
-    text-align : center
-    padding: 10px 16px;
-    border-radius: 8px;
-    border: 1px solid #ddd;
-    font-size: 14px;
-    width: 160px;
-  }
-  
-  .add-btn {
-    padding: 10px 16px;
-    border-radius: 8px;
-    border: none;
-    background-color: #6c63ff; /* purple like your screenshot */
-    color: white;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-  }
-  
-  .add-btn:hover {
-    background-color: #5a52d6;
-  }
-
 
   h1 {
     text-align: center;
     margin-bottom: 15px;
   }
 
-  .card {
-    padding: 16px;
-    border-radius: 12px;
-  }
-
-  .controls {
+  /* ✅ CENTERED – SAME SIZE */
+  .add-stock-container {
+    display: flex;              /* 🔑 REQUIRED */
+    justify-content: center;
+    align-items: center;
     gap: 10px;
-    margin-bottom: 12px;
+    margin: 20px auto;
   }
 
-  input {
-    flex: 1;
-    padding: 8px;
-    border-radius: 6px;
-    border: none;
+  .add-stock-container input {
+    width: 160px;               /* SAME size */
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    font-size: 14px;
+    text-align: center;         /* 🔑 fixed */
   }
 
-  button {
-    padding: 8px 14px;
-    border-radius: 6px;
+  .add-btn {
+    padding: 10px 16px;
+    border-radius: 8px;
     border: none;
+    background-color: #6c63ff;
+    color: white;
+    font-size: 14px;
     cursor: pointer;
+  }
+
+  .add-btn:hover {
+    background-color: #5a52d6;
   }
 
   .table-container {
@@ -97,21 +72,14 @@
     padding: 8px;
     text-align: center;
     white-space: nowrap;
+    border-bottom: none; /* ✅ no row lines */
   }
 
   thead th {
-    background-color: #1e293b;  /* header color */
-    color: #f8fafc;             /* header text */
+    background-color: #1e293b;
+    color: #f8fafc;
     font-weight: 600;
   }
-  thead th:first-child {
-    border-top-left-radius: 8px;
-  }
-  
-  thead th:last-child {
-    border-top-right-radius: 8px;
-  }
-
 
   .GREEN { color: var(--green); font-weight: bold; }
   .RED { color: var(--red); font-weight: bold; }
@@ -125,66 +93,59 @@
 
 <h1>📈 Stock Live Monitor</h1>
 
-  <!-- 🔹 ADD STOCK (RESTORED) -->
+<!-- ✅ CENTERED INPUT -->
 <div class="add-stock-container">
-  <input type="text" placeholder="ICICIBANK.NS" />
-  <button class="add-btn">Add Stock</button>
+  <input id="symbolInput" type="text" placeholder="ICICIBANK.NS" />
+  <button class="add-btn" onclick="addStock()">Add Stock</button>
 </div>
-  
-<div class="card">
-  <div class="table-container">
-    <table id="stockTable">
-      <thead>
-        <tr>
-          <th>Symbol</th>
-          <th>Last Price</th>
-          <th>Current High</th>
-          <th>Current Low</th>
-          <th>10:30 High</th>
-          <th>10:30 Low</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td colspan="7">Loading...</td></tr>
-      </tbody>
-    </table>
-  </div>
+
+<div class="table-container">
+  <table id="stockTable">
+    <thead>
+      <tr>
+        <th>Symbol</th>
+        <th>Last Price</th>
+        <th>Current High</th>
+        <th>Current Low</th>
+        <th>10:30 High</th>
+        <th>10:30 Low</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td colspan="7">Loading...</td></tr>
+    </tbody>
+  </table>
 </div>
 
 <script>
 const API = "https://stock-analysis-module.onrender.com";
 
 async function loadStocks() {
-  try {
-    const res = await fetch(`${API}/stocks`);
-    const data = await res.json();
+  const res = await fetch(`${API}/stocks`);
+  const data = await res.json();
 
-    const tbody = document.querySelector("#stockTable tbody");
-    tbody.innerHTML = "";
+  const tbody = document.querySelector("#stockTable tbody");
+  tbody.innerHTML = "";
 
-    data.forEach(s => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${s.symbol}</td>
-        <td>${s.last_price ?? "-"}</td>
-        <td>${s.current_high ?? "-"}</td>
-        <td>${s.current_low ?? "-"}</td>
-        <td>${s.high_1030 ?? "-"}</td>
-        <td>${s.low_1030 ?? "-"}</td>
-        <td class="${s.status}">${s.status}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-
-  } catch (e) {
-    console.error(e);
-  }
+  data.forEach(s => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${s.symbol}</td>
+      <td>${s.last_price ?? "-"}</td>
+      <td>${s.current_high ?? "-"}</td>
+      <td>${s.current_low ?? "-"}</td>
+      <td>${s.high_1030 ?? "-"}</td>
+      <td>${s.low_1030 ?? "-"}</td>
+      <td class="${s.status}">${s.status}</td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
 
 async function addStock() {
   const input = document.getElementById("symbolInput");
-  let symbol = input.value.trim();
+  const symbol = input.value.trim();
   if (!symbol) return;
 
   await fetch(`${API}/add/${symbol}`, { method: "POST" });
@@ -193,16 +154,8 @@ async function addStock() {
 }
 
 loadStocks();
-setInterval(loadStocks, 3000); // 🔥 3 seconds refresh
+setInterval(loadStocks, 3000);
 </script>
 
 </body>
 </html>
-
-
-
-
-
-
-
-
