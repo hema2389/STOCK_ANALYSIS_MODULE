@@ -90,14 +90,13 @@
 
 <h1>📈 Stock Live Monitor</h1>
 
-<div class="card">
-
   <!-- 🔹 ADD STOCK (RESTORED) -->
-  <div class="controls">
-    <input id="symbolInput" placeholder="Add stock (e.g. ITC or ITC.NS)" />
-    <button onclick="addStock()">Add</button>
-  </div>
-
+<div class="controls">
+  <input id="symbolInput" placeholder="Add stock (e.g. ITC or ITC.NS)" />
+  <button onclick="addStock()">Add</button>
+</div>
+  
+<div class="card">
   <div class="table-container">
     <table id="stockTable">
       <thead>
@@ -164,3 +163,4 @@ setInterval(loadStocks, 3000); // 🔥 3 seconds refresh
 
 </body>
 </html>
+
