@@ -66,14 +66,28 @@
     width: 100%;
     min-width: 1100px;
     border-collapse: collapse;
+    border: 1px solid #e5e7eb;   /* 🔹 outer outline */
+    border-radius: 10px;
+    overflow: hidden;
   }
+
 
   th, td {
     padding: 8px;
     text-align: center;
     white-space: nowrap;
-    border-bottom: none; /* ✅ no row lines */
   }
+  
+  /* 🔹 light separators only between rows */
+  tbody tr {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+  
+  /* 🔹 remove last line */
+  tbody tr:last-child {
+    border-bottom: none;
+  }
+
 
   thead th {
     background-color: #1e293b;
@@ -159,3 +173,4 @@ setInterval(loadStocks, 3000);
 
 </body>
 </html>
+
