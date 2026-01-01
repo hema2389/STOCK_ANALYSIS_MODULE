@@ -132,14 +132,14 @@ async function loadStocks() {
 
       row.innerHTML = `
         <td>${stock.symbol}</td>
-        <td>${stock.price}</td>
-        <td class="${changeClass}">${stock.change}</td>
-        <td class="${changeClass}">${stock.percent}%</td>
-        <td>${stock.high_1030}</td>
-        <td>${stock.low_1030}</td>
-        <td>${stock.current_high}</td>
-        <td>${stock.current_low}</td>
-        <td>${stock.updated_at}</td>
+        <td>${stock.current_price ?? "-"}</td>
+        <td>-</td>
+        <td>-</td>
+        <td>${stock.high_1030 ?? "-"}</td>
+        <td>${stock.low_1030 ?? "-"}</td>
+        <td>${stock.current_high ?? "-"}</td>
+        <td>${stock.current_low ?? "-"}</td>
+        <td>${stock.last_updated ?? "-"}</td>
       `;
 
       tbody.appendChild(row);
@@ -158,3 +158,4 @@ setInterval(loadStocks, 30000);
 
 </body>
 </html>
+
