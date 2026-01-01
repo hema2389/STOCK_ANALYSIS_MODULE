@@ -11,36 +11,42 @@ def update_prices(db):
 
     for stock in db.query(Stock).all():
         try:
+            # ===== PRIMARY: INTRADAY DATA =====
             df = yf.download(
-            stock.symbol,
-            interval="1m",
-            period="1d",
-            progress=False,
-            threads=False
-        )
-        
-        # 🔴 MARKET CLOSED / NO INTRADAY DATA
-        if df.empty:
-            fallback = yf.download(
                 stock.symbol,
-                period="5d",
-                interval="1d",
+                interval="1m",
+                period="1d",
                 progress=False,
                 threads=False
             )
-        
-            if fallback.empty:
-                continue
-        
-            last_row = fallback.iloc[-1]
-        
-            stock.last_price = round(float(last_row["Close"]), 2)
-            stock.current_high = round(float(last_row["High"]), 2)
-            stock.current_low = round(float(last_row["Low"]), 2)
-            stock.status = "MARKET_CLOSED"
-        
-            continue
 
+            # ===== FALLBACK: MARKET CLOSED =====
+            if df.empty:
+                fallback = yf.download(
+                    stock.symbol,
+                    period="5d",
+                    interval="1d",
+                    progress=False,
+                    threads=False
+                )
+
+                if fallback.empty:
+                    continue
+
+                last = fallback.iloc[-1]
+
+                stock.last_price = round(float(last["Close"]), 2)
+                stock.current_high = round(float(last["High"]), 2)
+                stock.current_low = round(float(last["Low"]), 2)
+                stock.status = "MARKET_CLOSED"
+                continue
+
+            # ===== NORMAL INTRADAY FLOW =====
+            df.index = df.index.tz_localize("UTC").tz_convert(now.tzinfo)
+
+            live_df = df[df.index.time <= now.time()]
+            if live_df.empty:
+                continue
 
             last_price = round(float(live_df["Close"].iloc[-1]), 2)
             cur_high = round(float(live_df["High"].max()), 2)
@@ -50,22 +56,23 @@ def update_prices(db):
             stock.current_high = cur_high
             stock.current_low = cur_low
 
+            # ===== 10:30 LEVELS =====
             if after_1030():
                 ref = live_df.between_time("09:15", "10:30")
                 if not ref.empty:
                     stock.high_1030 = round(ref["High"].max(), 2)
                     stock.low_1030 = round(ref["Low"].min(), 2)
 
-            # STATUS
+            # ===== STATUS =====
             if stock.high_1030 and stock.low_1030:
                 H, L, P = stock.high_1030, stock.low_1030, last_price
                 if P > H:
                     stock.status = "GREEN"
                 elif P < L:
                     stock.status = "RED"
-                elif H*(1-PROXIMITY_PCT) <= P <= H*(1+PROXIMITY_PCT):
+                elif H * (1 - PROXIMITY_PCT) <= P <= H * (1 + PROXIMITY_PCT):
                     stock.status = "AMBER"
-                elif L*(1-PROXIMITY_PCT) <= P <= L*(1+PROXIMITY_PCT):
+                elif L * (1 - PROXIMITY_PCT) <= P <= L * (1 + PROXIMITY_PCT):
                     stock.status = "PINK"
                 else:
                     stock.status = "NEUTRAL"
