@@ -11,4 +11,5 @@ jobs:
     steps:
       - name: Ping backend
         run: |
-          curl -sS "https://stock-analysis-module.onrender.com/status" || true
+
+          curl -sS "https://stock-monitor-backend-rlpp.onrender.com" || true
