@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, Plus, X, AlertCircle, RefreshCw } from 'lucide-react';
 
-// Change this to your deployed backend URL
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+// HARDCODED BACKEND URL - Change this to your backend URL
+const API_URL = 'https://stock-monitor-backend-rlpp.onrender.com';
 
 const StockMonitor = () => {
   const [stocks, setStocks] = useState([]);
@@ -17,7 +17,6 @@ const StockMonitor = () => {
     fetchMarketStatus();
     fetchStocks();
     
-    // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
       fetchMarketStatus();
       if (marketOpen) {
@@ -30,8 +29,10 @@ const StockMonitor = () => {
 
   const fetchMarketStatus = async () => {
     try {
+      console.log('Fetching market status from:', `${API_URL}/api/market-status`);
       const res = await fetch(`${API_URL}/api/market-status`);
       const data = await res.json();
+      console.log('Market status:', data);
       setMarketOpen(data.is_open);
     } catch (err) {
       console.error('Error fetching market status:', err);
@@ -40,8 +41,10 @@ const StockMonitor = () => {
 
   const fetchStocks = async () => {
     try {
+      console.log('Fetching stocks from:', `${API_URL}/api/stocks`);
       const res = await fetch(`${API_URL}/api/stocks`);
       const data = await res.json();
+      console.log('Stocks:', data);
       setStocks(data);
       setLastUpdate(new Date());
     } catch (err) {
@@ -59,11 +62,14 @@ const StockMonitor = () => {
     setError('');
 
     try {
+      console.log('Adding stock:', newSymbol);
       const res = await fetch(`${API_URL}/api/stocks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbol: newSymbol.toUpperCase() })
       });
+
+      console.log('Response status:', res.status);
 
       if (!res.ok) {
         const err = await res.json();
@@ -71,9 +77,11 @@ const StockMonitor = () => {
       }
 
       const data = await res.json();
+      console.log('Added stock:', data);
       setStocks([...stocks, data]);
       setNewSymbol('');
     } catch (err) {
+      console.error('Error adding stock:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -125,7 +133,6 @@ const StockMonitor = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <TrendingUp className="w-10 h-10 text-blue-600" />
@@ -153,7 +160,6 @@ const StockMonitor = () => {
           )}
         </div>
 
-        {/* Add Stock */}
         <div className="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-200">
           <div className="flex gap-3">
             <input
@@ -193,7 +199,6 @@ const StockMonitor = () => {
           </div>
         </div>
 
-        {/* Stock Table */}
         <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -257,7 +262,6 @@ const StockMonitor = () => {
           </div>
         </div>
 
-        {/* Footer Info */}
         <div className="mt-6 text-center text-gray-600 text-sm space-y-2">
           <p>🔄 Prices update automatically every 30 seconds during market hours (9:15 AM - 3:30 PM IST)</p>
           <p>📊 Data fetched from Yahoo Finance in real-time</p>
