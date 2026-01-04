@@ -1,15 +1,55 @@
-# STOCK_ANALYSIS_MODULE
+# 📈 Stock Live Monitor
 
-This project monitors stock prices and signals if price breaks the day's High or Low. It persists the HL values to `hl.json` so a restart won't lose them. Use the included GitHub Actions workflow to ping the backend periodically so Render Free doesn't sleep the service.
+A real-time stock price monitoring application with automatic updates, 10:30 AM high/low tracking, and color-coded status indicators.
 
-### Deploy
-1. Push this repo to GitHub.
-2. Add repository secret `BACKEND_URL` with your Render app URL.
-3. Connect backend/ folder to Render as a Web Service (Python). Use the command in Procfile.
-4. Deploy frontend as a static site (or serve via same backend using a static route).
+## Features
 
-Environment variables (optional):
-- `STOCKS` — comma separated tickers (default `RELIANCE.NS,SBIN.NS`)
-- `FETCH_HOUR` — hour in IST (default `10`)
-- `FETCH_MINUTE` — minute in IST (default `30`)
-- `POLL_SECONDS` — how often to poll live price (default `4`)
+- ✅ Real-time stock price fetching from Yahoo Finance
+- ✅ PostgreSQL database for persistent storage
+- ✅ Automatic updates every 30 seconds during market hours
+- ✅ 10:30 AM high/low capture
+- ✅ Color-coded status indicators (RED/GREEN/AMBER/NEUTRAL)
+- ✅ Market hours detection (9:15 AM - 3:30 PM IST)
+- ✅ Beautiful responsive UI with Tailwind CSS
+
+## Tech Stack
+
+**Backend:**
+- Flask
+- PostgreSQL
+- SQLAlchemy
+- Yahoo Finance API
+- APScheduler
+
+**Frontend:**
+- React
+- Tailwind CSS
+- Lucide Icons
+
+## Installation
+
+### Backend
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python app.py
+```
+
+### Frontend
+```bash
+cd frontend
+npm install
+npm start
+```
+
+## Environment Variables
+
+**Backend (.env):**
+```
+DATABASE_URL=postgresql://localhost/stockmonitor
+PORT=5000
+```
+
+**Frontend (.env):**
