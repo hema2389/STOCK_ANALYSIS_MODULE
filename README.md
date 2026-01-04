@@ -53,3 +53,10 @@ PORT=5000
 ```
 
 **Frontend (.env):**
+REACT_APP_API_URL=http://localhost:5000
+
+## Deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions on Render.
+
+## API
