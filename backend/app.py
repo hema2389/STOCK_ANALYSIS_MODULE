@@ -74,27 +74,33 @@ def is_past_1030():
     return now.time() >= time(10, 30)
 
 def fetch_stock_data(symbol):
-    """Fetch real-time stock data from Yahoo Finance"""
     try:
         ticker = yf.Ticker(symbol)
-        # Get intraday data
-        hist = ticker.history(period='1d', interval='1m')
-        
-        if hist.empty:
+
+        hist = ticker.history(
+            period='1d',
+            interval='5m',   # 🔥 change here
+            auto_adjust=True
+        )
+
+        if hist is None or hist.empty:
+            print(f"No data for {symbol}")
             return None
-        
+
         current_price = float(hist['Close'].iloc[-1])
         day_high = float(hist['High'].max())
         day_low = float(hist['Low'].min())
-        
+
         return {
             'price': round(current_price, 2),
             'high': round(day_high, 2),
             'low': round(day_low, 2)
         }
+
     except Exception as e:
-        print(f"Error fetching {symbol}: {str(e)}")
+        print(f"Yahoo error {symbol}: {e}")
         return None
+
 
 def update_stock_status(stock):
     """Update stock status based on 10:30 levels"""
