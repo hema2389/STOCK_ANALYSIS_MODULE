@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, time
+from datetime import datetime, time, date
 import pytz
 import yfinance as yf
 import os
@@ -27,6 +27,8 @@ class Stock(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     symbol = db.Column(db.String(20), unique=True, nullable=False)
 
+    trade_date = db.Column(db.Date)  # 🔑 IMPORTANT
+
     last_price = db.Column(db.Float)
     current_high = db.Column(db.Float)
     current_low = db.Column(db.Float)
@@ -42,6 +44,7 @@ class Stock(db.Model):
         return {
             "id": self.id,
             "symbol": self.symbol,
+            "tradeDate": self.trade_date.isoformat() if self.trade_date else None,
             "lastPrice": self.last_price,
             "currentHigh": self.current_high,
             "currentLow": self.current_low,
@@ -54,11 +57,15 @@ class Stock(db.Model):
 # =========================
 # HELPERS
 # =========================
+def now_ist():
+    return datetime.now(IST)
+
 def is_market_open():
-    now = datetime.now(IST)
-    if now.weekday() >= 5:
-        return False
-    return time(9, 15) <= now.time() <= time(15, 30)
+    now = now_ist()
+    return (
+        now.weekday() < 5
+        and time(9, 15) <= now.time() <= time(15, 30)
+    )
 
 def fetch_stock_data(symbol):
     try:
@@ -80,13 +87,24 @@ def fetch_stock_data(symbol):
         print(symbol, e)
         return None
 
+def reset_if_new_day(stock):
+    today = now_ist().date()
+
+    # Reset ONLY after market opens on a new day
+    if stock.trade_date != today and now_ist().time() >= time(9, 15):
+        stock.trade_date = today
+        stock.current_high = None
+        stock.current_low = None
+        stock.high_1030 = None
+        stock.low_1030 = None
+        stock.captured_1030 = False
+        stock.status = "NEUTRAL"
+
 def capture_1030(stock):
-    now = datetime.now(IST)
     if (
-        now.time() >= time(10, 30)
+        now_ist().time() >= time(10, 30)
         and not stock.captured_1030
         and stock.current_high is not None
-        and stock.current_low is not None
     ):
         stock.high_1030 = stock.current_high
         stock.low_1030 = stock.current_low
@@ -95,16 +113,12 @@ def capture_1030(stock):
 def update_status(stock):
     if not stock.high_1030 or not stock.low_1030:
         stock.status = "NEUTRAL"
-        return
-
-    if stock.last_price > stock.high_1030:
+    elif stock.last_price > stock.high_1030:
         stock.status = "GREEN"
     elif stock.last_price < stock.low_1030:
         stock.status = "RED"
-    elif abs(stock.last_price - stock.high_1030) <= 5 or abs(stock.last_price - stock.low_1030) <= 5:
-        stock.status = "AMBER"
     else:
-        stock.status = "NEUTRAL"
+        stock.status = "AMBER"
 
 # =========================
 # API ROUTES
@@ -128,6 +142,7 @@ def add_stock():
 
     stock = Stock(
         symbol=symbol,
+        trade_date=now_ist().date(),
         last_price=data["price"],
         current_high=data["high"],
         current_low=data["low"],
@@ -153,11 +168,14 @@ def delete_stock(symbol):
 
 @app.route("/api/stocks/update-all", methods=["POST"])
 def update_all():
-    if not is_market_open():
-        return jsonify({"error": "Market closed"}), 400
-
     stocks = Stock.query.all()
+
     for stock in stocks:
+        reset_if_new_day(stock)
+
+        if not is_market_open():
+            continue
+
         data = fetch_stock_data(stock.symbol)
         if not data:
             continue
