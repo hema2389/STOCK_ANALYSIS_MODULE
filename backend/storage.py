@@ -13,6 +13,8 @@ class Stock(Base):
     symbol = Column(String, primary_key=True)
     high_1030 = Column(Float)
     low_1030 = Column(Float)
+    current_high = Column(Float)
+    current_low = Column(Float)
     last_price = Column(Float)
     status = Column(String, default="NEUTRAL")
     trading_date = Column(Date, default=date.today)
@@ -25,3 +27,4 @@ def get_db():
         yield db
     finally:
         db.close()
+
