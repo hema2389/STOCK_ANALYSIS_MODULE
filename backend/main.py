@@ -49,10 +49,12 @@ def reset_trading_day():
 
 # ---------- FETCH & UPDATE ----------
 def update_prices():
+    now = datetime.now(IST).time()
+
     if not time(9, 15) <= now <= time(15, 30):
         return
+
     db = next(get_db())
-    now = datetime.now(IST).time()
 
     for stock in db.query(Stock).all():
         ticker = yf.Ticker(stock.symbol)
@@ -154,17 +156,7 @@ scheduler.start()
 def get_stocks(db: Session = Depends(get_db)):
     return db.query(Stock).all()
 
-@app.post("/add/{symbol}")
-def add_stock(symbol: str, db: Session = Depends(get_db)):
-    if not symbol.endswith(".NS"):
-        symbol += ".NS"
-
-    if db.query(Stock).filter_by(symbol=symbol).first():
-        return {"message": "Already exists"}
-
-    db.add(Stock(symbol=symbol))
-    db.commit()
-    return {"message": "Added"}
 @app.get("/status")
 def status():
     return {"status": "ok"}
+
